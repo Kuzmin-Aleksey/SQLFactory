@@ -1,0 +1,6 @@
+.idea
+config/config.yaml
+*.exe
+*.drawio.bkp
+*.drawio.dtmp
+.env
