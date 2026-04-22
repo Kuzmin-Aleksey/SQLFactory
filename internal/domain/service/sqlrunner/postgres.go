@@ -32,7 +32,9 @@ func connectPostgres(ctx context.Context, connString string) (*pgxpool.Pool, err
 	if err != nil {
 		return nil, failure.NewInternalError(err)
 	}
-	_ = ctx
+	if err := pool.Ping(ctx); err != nil {
+		return nil, failure.NewInternalError(err)
+	}
 	return pool, nil
 }
 

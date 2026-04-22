@@ -30,7 +30,9 @@ func connectMySQL(ctx context.Context, dsn string) (*sql.DB, error) {
 	if err != nil {
 		return nil, failure.NewInternalError(err)
 	}
-	_ = ctx
+	if err := db.PingContext(ctx); err != nil {
+		return nil, failure.NewInternalError(err)
+	}
 	return db, nil
 }
 
