@@ -11,8 +11,6 @@ import (
 	"google.golang.org/genai"
 )
 
-// Domain-agnostic input/output types.
-// Kept in this package to avoid depending on domain packages (e.g. aiquery).
 type IntentInput struct {
 	DBID   string            `json:"db_id"`
 	Text   string            `json:"text"`
@@ -21,9 +19,9 @@ type IntentInput struct {
 }
 
 type SQLInput struct {
-	DBID   string    `json:"db_id"`
+	DBID   string     `json:"db_id"`
 	Intent IntentJSON `json:"intent"`
-	Schema any       `json:"schema,omitempty"`
+	Schema any        `json:"schema,omitempty"`
 }
 
 type IntentJSON struct {
