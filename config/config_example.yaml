@@ -1,0 +1,34 @@
+---
+
+http_server:
+  addr: "127.0.0.1:8080"
+
+  log:
+    max_request_content_len: 1024
+    max_response_content_len: 512
+    request_logging_content:
+      - "application/json"
+    response_logging_content:
+      - "application/json"
+
+auth_service:
+  access_token_ttl: 1h
+  refresh_token_ttl: 720h
+  access_token_sign_key: "rand_string"
+
+log:
+  path: "logs"
+  level: "debug"
+
+redis:
+  addr: "127.0.0.1:6379"
+  password: "pass"
+
+mysql:
+  addr: "127.0.0.1:3306"
+  user: "root"
+  password: "pass"
+  schema: "SQLFactory"
+  connect_timeout_sec: 10
+
+...
