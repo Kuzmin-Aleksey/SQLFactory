@@ -11,12 +11,12 @@ goose-create NAME:
     goose -v -dir {{MIGRATION_DIR}} create {{NAME}} sql
 
 goose-up:
-    goose -v -dir {{MIGRATION_DIR}} mysql "{{env('MYSQL_USER', 'root')}}:{{env('MYSQL_PASSWORD')}}@/{{env('$MYSQL_SCHEMA')}}?parseTime=true" up
-    goose -v -dir {{MIGRATION_DIR}} mysql "{{env('MYSQL_USER', 'root')}}:{{env('MYSQL_PASSWORD')}}@/{{env('$MYSQL_SCHEMA')}}?parseTime=true" status
+    goose -v -dir {{MIGRATION_DIR}} mysql "{{env('MYSQL_USER', 'root')}}:{{env('MYSQL_PASSWORD')}}@/{{env('MYSQL_SCHEMA')}}?parseTime=true" up
+    goose -v -dir {{MIGRATION_DIR}} mysql "{{env('MYSQL_USER', 'root')}}:{{env('MYSQL_PASSWORD')}}@/{{env('MYSQL_SCHEMA')}}?parseTime=true" status
 
 goose-down:
-    goose -v -dir {{MIGRATION_DIR}} mysql "{{env('MYSQL_USER', 'root')}}:{{env('MYSQL_PASSWORD')}}@/{{env('$MYSQL_SCHEMA')}}?parseTime=true" down
-    goose -v -dir {{MIGRATION_DIR}} mysql "{{env('MYSQL_USER', 'root')}}:{{env('MYSQL_PASSWORD')}}@/{{env('$MYSQL_SCHEMA')}}?parseTime=true" status
+    goose -v -dir {{MIGRATION_DIR}} mysql "{{env('MYSQL_USER', 'root')}}:{{env('MYSQL_PASSWORD')}}@/{{env('MYSQL_SCHEMA')}}?parseTime=true" down
+    goose -v -dir {{MIGRATION_DIR}} mysql "{{env('MYSQL_USER', 'root')}}:{{env('MYSQL_PASSWORD')}}@/{{env('MYSQL_SCHEMA')}}?parseTime=true" status
 
 
 install_deps:
