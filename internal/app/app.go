@@ -47,10 +47,13 @@ func Run(cfg *config.Config) {
 	}
 
 	usersRepo := mysql.NewUsersRepo(db)
+	templatesRepo := mysql.NewTemplatesRepo(db)
+	historyRepo := mysql.NewHistoryRepo(db)
+	dictRepo := mysql.NewDictRepo(db)
 
 	authService := auth.NewService(usersRepo, tokensCache, confirmEmailCache, cfg.Auth)
 
-	httpServer := newHttpServer(l, authService, cfg.HttpServer)
+	httpServer := newHttpServer(l, authService, templatesRepo, historyRepo, dictRepo, cfg.HttpServer)
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal(err)
@@ -66,11 +69,17 @@ func Run(cfg *config.Config) {
 
 func newHttpServer(l *slog.Logger,
 	authService *auth.Service,
+	templatesService httpserver.TemplatesService,
+	historyService httpserver.HistoryService,
+	dictService httpserver.DictService,
 	cfg config.HttpServerConfig,
 ) *http.Server {
 	restAuthServer := httpserver.NewAuthServer(authService)
+	restTemplatesServer := httpserver.NewTemplatesServer(templatesService)
+	restHistoryServer := httpserver.NewHistoryServer(historyService)
+	restDictServer := httpserver.NewDictServer(dictService)
 
-	restServer := httpserver.NewServer(restAuthServer)
+	restServer := httpserver.NewServer(restAuthServer, restTemplatesServer, restHistoryServer, restDictServer)
 
 	rtr := mux.NewRouter()
 	restServer.RegisterRoutes(rtr)
