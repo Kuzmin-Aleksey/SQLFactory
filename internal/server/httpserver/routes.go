@@ -24,4 +24,6 @@ func (s *Server) RegisterRoutes(rtr *mux.Router) {
 	rtr.HandleFunc("/api/dict/item", s.MwAuth(s.addDictItem)).Methods(http.MethodGet)
 	rtr.HandleFunc("/api/dict/item", s.MwAuth(s.updateDictItem)).Methods(http.MethodPut)
 	rtr.HandleFunc("/api/dict/item", s.MwAuth(s.deleteDictItem)).Methods(http.MethodDelete)
+
+	rtr.HandleFunc("/api/ai/query", s.MwAuth(s.runAIQuery)).Methods(http.MethodPost)
 }

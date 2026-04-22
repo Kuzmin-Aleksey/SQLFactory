@@ -4,6 +4,9 @@ import (
 	"SQLFactory/internal/app/logger"
 	"SQLFactory/internal/config"
 	"SQLFactory/internal/domain/service/auth"
+	"SQLFactory/internal/domain/service/sqlrunner"
+	"SQLFactory/internal/domain/service/aiquery"
+	"SQLFactory/internal/infrastructure/llm/gemini"
 	"SQLFactory/internal/infrastructure/persistence/mysql"
 	"SQLFactory/internal/infrastructure/persistence/redis"
 	"SQLFactory/internal/server/httpserver"
@@ -52,8 +55,16 @@ func Run(cfg *config.Config) {
 	dictRepo := mysql.NewDictRepo(db)
 
 	authService := auth.NewService(usersRepo, tokensCache, confirmEmailCache, cfg.Auth)
+	sqlRunnerService := sqlrunner.NewService()
 
-	httpServer := newHttpServer(l, authService, templatesRepo, historyRepo, dictRepo, cfg.HttpServer)
+	ctx := context.Background()
+	geminiClient, err := gemini.NewClient(ctx, "gemini-3-flash-preview")
+	if err != nil {
+		log.Fatal("gemini: ", err)
+	}
+	aiQueryService := aiquery.NewService(sqlRunnerService, geminiClient, historyRepo)
+
+	httpServer := newHttpServer(l, authService, templatesRepo, historyRepo, dictRepo, aiQueryService, cfg.HttpServer)
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal(err)
@@ -72,14 +83,16 @@ func newHttpServer(l *slog.Logger,
 	templatesService httpserver.TemplatesService,
 	historyService httpserver.HistoryService,
 	dictService httpserver.DictService,
+	aiQueryService httpserver.AIQueryService,
 	cfg config.HttpServerConfig,
 ) *http.Server {
 	restAuthServer := httpserver.NewAuthServer(authService)
 	restTemplatesServer := httpserver.NewTemplatesServer(templatesService)
 	restHistoryServer := httpserver.NewHistoryServer(historyService)
 	restDictServer := httpserver.NewDictServer(dictService)
+	restAIQueryServer := httpserver.NewAIQueryServer(aiQueryService)
 
-	restServer := httpserver.NewServer(restAuthServer, restTemplatesServer, restHistoryServer, restDictServer)
+	restServer := httpserver.NewServer(restAuthServer, restTemplatesServer, restHistoryServer, restDictServer, restAIQueryServer)
 
 	rtr := mux.NewRouter()
 	restServer.RegisterRoutes(rtr)

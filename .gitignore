@@ -4,3 +4,4 @@ config/config.yaml
 *.drawio.bkp
 *.drawio.dtmp
 .env
+logs/

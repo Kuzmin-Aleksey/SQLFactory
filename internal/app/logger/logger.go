@@ -4,7 +4,6 @@ import (
 	"SQLFactory/internal/config"
 	"SQLFactory/pkg/contextx"
 	"context"
-	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	"io"
 	"log"
 	"log/slog"
@@ -12,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 )
 
 const (
