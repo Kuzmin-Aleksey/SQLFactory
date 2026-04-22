@@ -8,6 +8,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      HTTP_ADDR: ":8080"
       MYSQL_ADDR: "mysql:3306"
       REDIS_ADDR: "redis:6379"
     depends_on:
@@ -51,8 +52,9 @@ services:
     restart: always
     ports:
       - "127.0.0.1:6379:6379"
+    command: ["redis-server", "--requirepass", "pass"]
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "-a", "pass", "ping"]
       timeout: 5s
       interval: 5s
       retries: 3
