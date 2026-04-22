@@ -28,10 +28,10 @@ func (c *mysqlConn) Close() error { return c.db.Close() }
 func connectMySQL(ctx context.Context, dsn string) (*sql.DB, error) {
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		return nil, failure.NewInternalError(err)
+		return nil, failure.NewExternalDBError(err)
 	}
 	if err := db.PingContext(ctx); err != nil {
-		return nil, failure.NewInternalError(err)
+		return nil, failure.NewExternalDBError(err)
 	}
 	return db, nil
 }
@@ -39,13 +39,13 @@ func connectMySQL(ctx context.Context, dsn string) (*sql.DB, error) {
 func queryMySQLWithDB(ctx context.Context, db *sql.DB, q string, maxRows int) (*QueryResult, error) {
 	rows, err := db.QueryContext(ctx, q)
 	if err != nil {
-		return nil, failure.NewInternalError(err)
+		return nil, failure.NewExternalDBError(err)
 	}
 	defer rows.Close()
 
 	cols, err := rows.Columns()
 	if err != nil {
-		return nil, failure.NewInternalError(err)
+		return nil, failure.NewExternalDBError(err)
 	}
 
 	res := &QueryResult{Header: cols}
@@ -60,18 +60,18 @@ func queryMySQLWithDB(ctx context.Context, db *sql.DB, q string, maxRows int) (*
 			scanArgs[i] = &values[i]
 		}
 		if err := rows.Scan(scanArgs...); err != nil {
-			return nil, failure.NewInternalError(err)
+			return nil, failure.NewExternalDBError(err)
 		}
 
 		row := make([]string, len(cols))
 		for i := range row {
-			row[i] = NormalizeDBValue(values[i])
+			row[i] = normalizeDBValue(values[i])
 		}
 		res.Data = append(res.Data, row)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, failure.NewInternalError(err)
+		return nil, failure.NewExternalDBError(err)
 	}
 
 	return res, nil
@@ -88,7 +88,7 @@ ORDER BY TABLE_NAME, ORDINAL_POSITION
 
 	rows, err := db.QueryContext(ctx, colsSQL, dbName)
 	if err != nil {
-		return nil, failure.NewInternalError(err)
+		return nil, failure.NewExternalDBError(err)
 	}
 	defer rows.Close()
 
@@ -106,7 +106,7 @@ ORDER BY TABLE_NAME, ORDINAL_POSITION
 		var extra, colKey sql.NullString
 
 		if err := rows.Scan(&tableName, &colName, &dataType, &isNullable, &colDefault, &extra, &colKey); err != nil {
-			return nil, failure.NewInternalError(err)
+			return nil, failure.NewExternalDBError(err)
 		}
 
 		k := tableKey{schema: "", name: tableName}
@@ -132,7 +132,7 @@ ORDER BY TABLE_NAME, ORDINAL_POSITION
 		t.Columns = append(t.Columns, c)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, failure.NewInternalError(err)
+		return nil, failure.NewExternalDBError(err)
 	}
 
 	// Foreign keys
@@ -144,7 +144,7 @@ ORDER BY TABLE_NAME, COLUMN_NAME
 `
 	fkRows, err := db.QueryContext(ctx, fkSQL, dbName)
 	if err != nil {
-		return nil, failure.NewInternalError(err)
+		return nil, failure.NewExternalDBError(err)
 	}
 	defer fkRows.Close()
 
@@ -169,7 +169,7 @@ ORDER BY TABLE_NAME, COLUMN_NAME
 		})
 	}
 	if err := fkRows.Err(); err != nil {
-		return nil, failure.NewInternalError(err)
+		return nil, failure.NewExternalDBError(err)
 	}
 
 	out := &DatabaseSchema{Database: dbName, Tables: make([]TableSchema, 0, len(order))}

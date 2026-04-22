@@ -14,6 +14,7 @@ type Config struct {
 	Redis      RedisConfig      `yaml:"redis"`
 	HttpServer HttpServerConfig `yaml:"http_server"`
 	Auth       AuthConfig       `yaml:"auth"`
+	SQLRunner  SQLRunnerConfig  `yaml:"sql_runner"`
 }
 
 type AuthConfig struct {
@@ -54,6 +55,10 @@ type HttpLog struct {
 	MaxResponseContentLen  int      `yaml:"max_response_content_len" env:"HTTP_LOG_MAX_RESPONSE_CONTENT_LEN" env-default:"2048"`
 	RequestLoggingContent  []string `yaml:"request_logging_content" env:"HTTP_LOG_REQUEST_LOGGING_CONTENT" env-default:""`
 	ResponseLoggingContent []string `yaml:"response_logging_content" env:"HTTP_LOG_RESPONSE_LOGGING_CONTENT" env-default:""`
+}
+
+type SQLRunnerConfig struct {
+	MaxRows int `yaml:"max_rows" env:"SQL_MAX_ROWS" env-default:"1000"`
 }
 
 func ReadConfig(path string, dotenv ...string) (*Config, error) {

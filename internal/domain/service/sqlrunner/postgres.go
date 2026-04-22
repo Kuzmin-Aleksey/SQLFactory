@@ -30,10 +30,10 @@ func (c *postgresConn) Close() error {
 func connectPostgres(ctx context.Context, connString string) (*pgxpool.Pool, error) {
 	pool, err := pgxpool.New(ctx, connString)
 	if err != nil {
-		return nil, failure.NewInternalError(err)
+		return nil, failure.NewExternalDBError(err)
 	}
 	if err := pool.Ping(ctx); err != nil {
-		return nil, failure.NewInternalError(err)
+		return nil, failure.NewExternalDBError(err)
 	}
 	return pool, nil
 }
@@ -41,7 +41,7 @@ func connectPostgres(ctx context.Context, connString string) (*pgxpool.Pool, err
 func queryPostgresWithPool(ctx context.Context, pool *pgxpool.Pool, q string, maxRows int) (*QueryResult, error) {
 	rows, err := pool.Query(ctx, q)
 	if err != nil {
-		return nil, failure.NewInternalError(err)
+		return nil, failure.NewExternalDBError(err)
 	}
 	defer rows.Close()
 
@@ -59,7 +59,7 @@ func queryPostgresWithPool(ctx context.Context, pool *pgxpool.Pool, q string, ma
 
 		vals, err := rows.Values()
 		if err != nil {
-			return nil, failure.NewInternalError(err)
+			return nil, failure.NewExternalDBError(err)
 		}
 
 		row := make([]string, len(cols))
@@ -67,13 +67,13 @@ func queryPostgresWithPool(ctx context.Context, pool *pgxpool.Pool, q string, ma
 			if i >= len(vals) {
 				break
 			}
-			row[i] = NormalizeDBValue(vals[i])
+			row[i] = normalizeDBValue(vals[i])
 		}
 		res.Data = append(res.Data, row)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, failure.NewInternalError(err)
+		return nil, failure.NewExternalDBError(err)
 	}
 	return res, nil
 }
@@ -90,7 +90,7 @@ ORDER BY c.table_schema, c.table_name, c.ordinal_position
 `
 	rows, err := pool.Query(ctx, colsSQL)
 	if err != nil {
-		return nil, failure.NewInternalError(err)
+		return nil, failure.NewExternalDBError(err)
 	}
 	defer rows.Close()
 
@@ -106,7 +106,7 @@ ORDER BY c.table_schema, c.table_name, c.ordinal_position
 		var colDefault *string
 
 		if err := rows.Scan(&schemaName, &tableName, &colName, &dataType, &isNullable, &colDefault); err != nil {
-			return nil, failure.NewInternalError(err)
+			return nil, failure.NewExternalDBError(err)
 		}
 
 		k := tableKey{schema: schemaName, name: tableName}
@@ -128,7 +128,7 @@ ORDER BY c.table_schema, c.table_name, c.ordinal_position
 		t.Columns = append(t.Columns, c)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, failure.NewInternalError(err)
+		return nil, failure.NewExternalDBError(err)
 	}
 
 	const fkSQL = `
@@ -151,14 +151,14 @@ ORDER BY tc.table_schema, tc.table_name, kcu.column_name
 `
 	fkRows, err := pool.Query(ctx, fkSQL)
 	if err != nil {
-		return nil, failure.NewInternalError(err)
+		return nil, failure.NewExternalDBError(err)
 	}
 	defer fkRows.Close()
 
 	for fkRows.Next() {
 		var schemaName, tableName, colName, constraintName, refSchema, refTable, refCol string
 		if err := fkRows.Scan(&schemaName, &tableName, &colName, &constraintName, &refSchema, &refTable, &refCol); err != nil {
-			return nil, failure.NewInternalError(err)
+			return nil, failure.NewExternalDBError(err)
 		}
 
 		k := tableKey{schema: schemaName, name: tableName}
@@ -177,7 +177,7 @@ ORDER BY tc.table_schema, tc.table_name, kcu.column_name
 		})
 	}
 	if err := fkRows.Err(); err != nil {
-		return nil, failure.NewInternalError(err)
+		return nil, failure.NewExternalDBError(err)
 	}
 
 	out := &DatabaseSchema{Database: dbName, Tables: make([]TableSchema, 0, len(order))}

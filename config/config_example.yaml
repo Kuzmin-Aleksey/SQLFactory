@@ -31,4 +31,6 @@ mysql:
   schema: "SQLFactory"
   connect_timeout_sec: 10
 
+sql_runner:
+  max_rows: 1000
 ...

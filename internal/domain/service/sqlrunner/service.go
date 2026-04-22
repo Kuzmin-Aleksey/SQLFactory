@@ -1,17 +1,17 @@
 package sqlrunner
 
 import (
+	"SQLFactory/internal/config"
 	"SQLFactory/pkg/failure"
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
-	"time"
 )
 
 type Service struct {
-	QueryTimeout time.Duration
-	MaxRows      int
+	cfg config.SQLRunnerConfig
 }
 
 type Conn interface {
@@ -20,12 +20,13 @@ type Conn interface {
 	Close() error
 }
 
-func NewService() *Service {
+func NewService(cfg config.SQLRunnerConfig) *Service {
 	return &Service{
-		QueryTimeout: 10 * time.Second,
-		MaxRows:      1000,
+		cfg: cfg,
 	}
 }
+
+var ErrUnsupportedDBType = errors.New("unsupported db_type")
 
 func (s *Service) Query(ctx context.Context, req QueryRequest) (*QueryResult, error) {
 	conn, err := s.Connect(ctx, req.ConnectionRequest)
@@ -34,10 +35,7 @@ func (s *Service) Query(ctx context.Context, req QueryRequest) (*QueryResult, er
 	}
 	defer conn.Close()
 
-	qctx, cancel := context.WithTimeout(ctx, s.QueryTimeout)
-	defer cancel()
-
-	return conn.Query(qctx, req.SQL)
+	return conn.Query(ctx, req.SQL)
 }
 
 func (s *Service) Connect(ctx context.Context, req ConnectionRequest) (Conn, error) {
@@ -48,7 +46,7 @@ func (s *Service) Connect(ctx context.Context, req ConnectionRequest) (Conn, err
 			"%s:%s@tcp(%s:%d)/%s?parseTime=true&multiStatements=true",
 			req.User, req.Password, req.Host, req.Port, req.Database,
 		)
-		return connectMySQLConn(ctx, dsn, req.Database, s.MaxRows)
+		return connectMySQLConn(ctx, dsn, req.Database, s.cfg.MaxRows)
 	case "postgres", "postgresql":
 		u := &url.URL{
 			Scheme: "postgresql",
@@ -56,9 +54,9 @@ func (s *Service) Connect(ctx context.Context, req ConnectionRequest) (Conn, err
 			Host:   fmt.Sprintf("%s:%d", req.Host, req.Port),
 			Path:   "/" + req.Database,
 		}
-		return connectPostgresConn(ctx, u.String(), req.Database, s.MaxRows)
+		return connectPostgresConn(ctx, u.String(), req.Database, s.cfg.MaxRows)
 	default:
-		return nil, failure.ErrUnsupportedDBType
+		return nil, failure.NewExternalDBError(ErrUnsupportedDBType)
 	}
 }
 
