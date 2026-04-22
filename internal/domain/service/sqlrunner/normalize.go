@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func normalizeDBValue(v any) string {
+func NormalizeDBValue(v any) string {
 	switch t := v.(type) {
 	case nil:
 		return ""
@@ -17,4 +17,3 @@ func normalizeDBValue(v any) string {
 		return fmt.Sprint(v)
 	}
 }
-

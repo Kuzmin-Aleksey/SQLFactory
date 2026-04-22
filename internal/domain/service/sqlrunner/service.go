@@ -14,6 +14,12 @@ type Service struct {
 	MaxRows      int
 }
 
+type Conn interface {
+	Query(ctx context.Context, sql string) (*QueryResult, error)
+	Schema(ctx context.Context) (*DatabaseSchema, error)
+	Close() error
+}
+
 func NewService() *Service {
 	return &Service{
 		QueryTimeout: 10 * time.Second,
@@ -22,9 +28,19 @@ func NewService() *Service {
 }
 
 func (s *Service) Query(ctx context.Context, req QueryRequest) (*QueryResult, error) {
-	ctx, cancel := context.WithTimeout(ctx, s.QueryTimeout)
+	conn, err := s.Connect(ctx, req.ConnectionRequest)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	qctx, cancel := context.WithTimeout(ctx, s.QueryTimeout)
 	defer cancel()
 
+	return conn.Query(qctx, req.SQL)
+}
+
+func (s *Service) Connect(ctx context.Context, req ConnectionRequest) (Conn, error) {
 	dbType := strings.ToLower(strings.TrimSpace(req.DBType))
 	switch dbType {
 	case "mysql":
@@ -32,7 +48,7 @@ func (s *Service) Query(ctx context.Context, req QueryRequest) (*QueryResult, er
 			"%s:%s@tcp(%s:%d)/%s?parseTime=true&multiStatements=true",
 			req.User, req.Password, req.Host, req.Port, req.Database,
 		)
-		return queryMySQL(ctx, dsn, req.SQL, s.MaxRows)
+		return connectMySQLConn(ctx, dsn, req.Database, s.MaxRows)
 	case "postgres", "postgresql":
 		u := &url.URL{
 			Scheme: "postgresql",
@@ -40,8 +56,24 @@ func (s *Service) Query(ctx context.Context, req QueryRequest) (*QueryResult, er
 			Host:   fmt.Sprintf("%s:%d", req.Host, req.Port),
 			Path:   "/" + req.Database,
 		}
-		return queryPostgres(ctx, u.String(), req.SQL, s.MaxRows)
+		return connectPostgresConn(ctx, u.String(), req.Database, s.MaxRows)
 	default:
 		return nil, failure.ErrUnsupportedDBType
 	}
+}
+
+func connectMySQLConn(ctx context.Context, dsn string, dbName string, maxRows int) (Conn, error) {
+	db, err := connectMySQL(ctx, dsn)
+	if err != nil {
+		return nil, err
+	}
+	return &mysqlConn{db: db, dbName: dbName, maxRows: maxRows}, nil
+}
+
+func connectPostgresConn(ctx context.Context, connString string, dbName string, maxRows int) (Conn, error) {
+	pool, err := connectPostgres(ctx, connString)
+	if err != nil {
+		return nil, err
+	}
+	return &postgresConn{pool: pool, dbName: dbName, maxRows: maxRows}, nil
 }
