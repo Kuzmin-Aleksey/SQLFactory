@@ -10,7 +10,8 @@ CREATE TABLE `SQLFactory`.`history` (
     `title` VARCHAR(512) NOT NULL,
     `prompt` TEXT NOT NULL,
     `query` TEXT NOT NULL,
-    `data` TEXT NOT NULL,
+    `table_data` TEXT NOT NULL,
+    `chart_type` TEXT NOT NULL,
     `reasoning` TEXT NOT NULL,
 PRIMARY KEY (`id`),
 INDEX `history_to_user_idx` (`user_id` ASC) VISIBLE,
@@ -26,6 +27,7 @@ CREATE TABLE `SQLFactory`.`templates` (
     `db` VARCHAR(512) NOT NULL,
     `title` VARCHAR(512) NOT NULL,
     `query` TEXT NOT NULL,
+    `chart_type` TEXT NOT NULL,
 PRIMARY KEY (`id`));
 
 CREATE TABLE `dict` (

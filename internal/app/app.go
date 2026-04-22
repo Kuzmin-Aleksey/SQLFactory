@@ -4,6 +4,9 @@ import (
 	"SQLFactory/internal/app/logger"
 	"SQLFactory/internal/config"
 	"SQLFactory/internal/domain/service/auth"
+	"SQLFactory/internal/domain/service/executor"
+	"SQLFactory/internal/domain/service/sqlrunner"
+	"SQLFactory/internal/infrastructure/llm/gemini"
 	"SQLFactory/internal/infrastructure/persistence/mysql"
 	"SQLFactory/internal/infrastructure/persistence/redis"
 	"SQLFactory/internal/server/httpserver"
@@ -46,14 +49,21 @@ func Run(cfg *config.Config) {
 		log.Fatal("redis: ", err)
 	}
 
+	llm, err := gemini.NewClient(context.Background(), "")
+	if err != nil {
+		log.Fatal("gemini: ", err)
+	}
+
 	usersRepo := mysql.NewUsersRepo(db)
 	templatesRepo := mysql.NewTemplatesRepo(db)
 	historyRepo := mysql.NewHistoryRepo(db)
 	dictRepo := mysql.NewDictRepo(db)
 
+	sqlRunnerService := sqlrunner.NewService(cfg.SQLRunner)
+	executorService := executor.NewService(historyRepo, templatesRepo, dictRepo, sqlRunnerService, llm)
 	authService := auth.NewService(usersRepo, tokensCache, confirmEmailCache, cfg.Auth)
 
-	httpServer := newHttpServer(l, authService, templatesRepo, historyRepo, dictRepo, cfg.HttpServer)
+	httpServer := newHttpServer(l, authService, templatesRepo, historyRepo, dictRepo, executorService, cfg.HttpServer)
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal(err)
@@ -72,14 +82,16 @@ func newHttpServer(l *slog.Logger,
 	templatesService httpserver.TemplatesService,
 	historyService httpserver.HistoryService,
 	dictService httpserver.DictService,
+	executorService *executor.Service,
 	cfg config.HttpServerConfig,
 ) *http.Server {
 	restAuthServer := httpserver.NewAuthServer(authService)
 	restTemplatesServer := httpserver.NewTemplatesServer(templatesService)
 	restHistoryServer := httpserver.NewHistoryServer(historyService)
 	restDictServer := httpserver.NewDictServer(dictService)
+	restExecutorServer := httpserver.NewExecutorServer(executorService)
 
-	restServer := httpserver.NewServer(restAuthServer, restTemplatesServer, restHistoryServer, restDictServer)
+	restServer := httpserver.NewServer(restAuthServer, restTemplatesServer, restHistoryServer, restDictServer, restExecutorServer)
 
 	rtr := mux.NewRouter()
 	restServer.RegisterRoutes(rtr)

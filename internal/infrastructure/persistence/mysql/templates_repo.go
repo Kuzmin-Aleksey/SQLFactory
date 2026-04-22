@@ -4,6 +4,8 @@ import (
 	"SQLFactory/internal/domain/entity"
 	"SQLFactory/pkg/failure"
 	"context"
+	"database/sql"
+	"errors"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -18,7 +20,7 @@ func NewTemplatesRepo(db *sqlx.DB) *TemplatesRepo {
 }
 
 func (r *TemplatesRepo) SaveTemplate(ctx context.Context, template *entity.Template) error {
-	res, err := r.db.NamedExecContext(ctx, "INSERT INTO templates (db, title, query) VALUES (:db_id, :title, :query)", template)
+	res, err := r.db.NamedExecContext(ctx, "INSERT INTO templates (db, title, query, chart_type) VALUES (:db_id, :title, :query, :chart_type)", template)
 	if err != nil {
 		return failure.NewInternalError(err)
 	}
@@ -30,6 +32,17 @@ func (r *TemplatesRepo) SaveTemplate(ctx context.Context, template *entity.Templ
 	template.Id = int(lastID)
 
 	return nil
+}
+
+func (r *TemplatesRepo) GetById(ctx context.Context, id int) (*entity.Template, error) {
+	template := new(entity.Template)
+	if err := r.db.GetContext(ctx, template, "SELECT * FROM templates WHERE id=?", id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, failure.NewNotFoundError(err)
+		}
+		return nil, failure.NewInternalError(err)
+	}
+	return template, nil
 }
 
 func (r *TemplatesRepo) UpdateTemplate(ctx context.Context, template *entity.Template) error {

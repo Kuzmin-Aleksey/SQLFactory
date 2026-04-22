@@ -1,8 +1,8 @@
 package sqlrunner
 
 type QueryResult struct {
-	Header []string   `json:"columns"`
-	Data   [][]string `json:"rows"`
+	Header []string   `json:"header"`
+	Data   [][]string `json:"data"`
 }
 
 type ConnectionRequest struct {

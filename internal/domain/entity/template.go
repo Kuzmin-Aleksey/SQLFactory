@@ -1,8 +1,9 @@
 package entity
 
 type Template struct {
-	Id    int    `json:"id" db:"id"`
-	DB    string `json:"db" db:"db"`
-	Title string `json:"title" db:"title"`
-	Query string `json:"query" db:"query"`
+	Id        int    `json:"id" db:"id"`
+	DB        string `json:"db" db:"db"`
+	Title     string `json:"title" db:"title"`
+	Query     string `json:"query" db:"query"`
+	ChartType string `json:"chart_type" db:"chart_type"`
 }
