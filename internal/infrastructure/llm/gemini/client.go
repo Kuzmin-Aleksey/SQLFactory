@@ -40,9 +40,26 @@ type ChartSpec struct {
 }
 
 type SQLJSON struct {
+	Title            string    `json:"title"`
 	SQL              string    `json:"sql"`
 	ExplanationSteps []string  `json:"explanation_steps"`
 	Chart            ChartSpec `json:"chart"`
+}
+
+func HistoryTitle(userText string, out SQLJSON) string {
+	if t := strings.TrimSpace(out.Title); t != "" {
+		return t
+	}
+	t := strings.TrimSpace(userText)
+	if t == "" {
+		return "Query"
+	}
+	const maxRunes = 80
+	r := []rune(t)
+	if len(r) <= maxRunes {
+		return t
+	}
+	return strings.TrimSpace(string(r[:maxRunes])) + "…"
 }
 
 type Client struct {
@@ -113,6 +130,7 @@ schema: %s
 
 Return JSON with keys:
 {
+  "title": string,
   "sql": string,
   "explanation_steps": string[],
   "chart": {
