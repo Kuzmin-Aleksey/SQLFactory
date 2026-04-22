@@ -1,0 +1,6 @@
+FROM gomicro/goose:3.24.1
+
+ADD db/migrations /migrations/
+
+
+ENTRYPOINT ["goose", "-v", "up"]
