@@ -74,4 +74,5 @@ func (s *DictServer) deleteDictItem(w http.ResponseWriter, r *http.Request) {
 		writeAndLogErr(ctx, w, err)
 		return
 	}
+	w.WriteHeader(http.StatusOK)
 }
