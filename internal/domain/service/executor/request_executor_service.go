@@ -51,6 +51,7 @@ func NewService(history History, templates Templates, dict Dict, sqlRunner *sqlr
 	return &Service{
 		history:   history,
 		templates: templates,
+		dict:      dict,
 		sqlRunner: sqlRunner,
 		llm:       llm,
 	}
