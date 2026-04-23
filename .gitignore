@@ -1,4 +1,5 @@
 .idea
+**/*log
 config/config.yaml
 *.exe
 *.drawio.bkp
