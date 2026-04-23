@@ -2,7 +2,7 @@
 
 http_server:
   addr: "127.0.0.1:8080"
-
+  enable_auth: true
   log:
     max_request_content_len: 1024
     max_response_content_len: 512
@@ -37,4 +37,6 @@ sql_runner:
 gemini:
   model: "gemini-3-flash-preview"
   api_key: "your api key"
+
+debug_user: true
 ...

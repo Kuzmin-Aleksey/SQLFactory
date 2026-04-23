@@ -16,6 +16,7 @@ type Config struct {
 	Auth       AuthConfig       `yaml:"auth"`
 	SQLRunner  SQLRunnerConfig  `yaml:"sql_runner"`
 	Gemini     GeminiConfig     `yaml:"gemini"`
+	DebugUser  bool             `yaml:"debug_user" env:"DEBUG_USER" env-default:"true"`
 }
 
 type AuthConfig struct {
@@ -50,6 +51,7 @@ type HttpServerConfig struct {
 	HandleTimeout   time.Duration `yaml:"handle_timeout" env:"HTTP_HANDLE_TIMEOUT" env-default:"10s"`
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout" env:"HTTP_SHUTDOWN_TIMEOUT" env-default:"10s"`
 	Log             HttpLog       `yaml:"log"`
+	EnableAuth      bool          `yaml:"enable_auth" env:"HTTP_ENABLE_AUTH" env-default:"true"`
 }
 
 type HttpLog struct {

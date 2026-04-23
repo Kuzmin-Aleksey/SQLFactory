@@ -15,6 +15,7 @@ import (
 	"context"
 	"errors"
 	"github.com/gorilla/mux"
+	"github.com/jmoiron/sqlx"
 	"github.com/rs/cors"
 	"log"
 	"log/slog"
@@ -39,6 +40,10 @@ func Run(cfg *config.Config) {
 		log.Fatal("mysql: ", err)
 	}
 	defer db.Close()
+
+	if cfg.DebugUser {
+		createDebugUser(db)
+	}
 
 	tokensCache, err := redis.NewTokensCache(cfg.Redis)
 	if err != nil {
@@ -77,6 +82,10 @@ func Run(cfg *config.Config) {
 	}
 }
 
+type restServerInterface interface {
+	RegisterRoutes(rtr *mux.Router)
+}
+
 func newHttpServer(l *slog.Logger,
 	authService *auth.Service,
 	templatesService httpserver.TemplatesService,
@@ -91,7 +100,11 @@ func newHttpServer(l *slog.Logger,
 	restDictServer := httpserver.NewDictServer(dictService)
 	restExecutorServer := httpserver.NewExecutorServer(executorService)
 
-	restServer := httpserver.NewServer(restAuthServer, restTemplatesServer, restHistoryServer, restDictServer, restExecutorServer)
+	var restServer restServerInterface = httpserver.NewServer(restAuthServer, restTemplatesServer, restHistoryServer, restDictServer, restExecutorServer)
+
+	if !cfg.EnableAuth {
+		restServer = newServerDisableAuth(restServer)
+	}
 
 	rtr := mux.NewRouter()
 	restServer.RegisterRoutes(rtr)
@@ -130,5 +143,27 @@ func newHttpServer(l *slog.Logger,
 		BaseContext: func(net.Listener) context.Context {
 			return contextx.WithLogger(context.Background(), l)
 		},
+	}
+}
+
+const (
+	debugUserId       = 1
+	debugUserEmail    = "test@mail.ru"
+	debugUserName     = "test"
+	debugUserPassword = "pass"
+)
+
+func createDebugUser(db *sqlx.DB) {
+	log.Println("creating debug user ", "email:", debugUserEmail, "password:", debugUserPassword)
+
+	var exist bool
+	if err := db.Get(&exist, "DELETE FROM users WHERE id=? ", debugUserId); err != nil {
+		log.Fatal("failed create debug user", err)
+	}
+	if exist {
+		return
+	}
+	if _, err := db.Exec("INSERT INTO users (id, email, name, password) VALUES (?, ?, ?, ?)", debugUserId, debugUserEmail, debugUserName, debugUserPassword); err != nil {
+		log.Fatal("failed create debug user", err)
 	}
 }
