@@ -48,7 +48,7 @@ func (r *HistoryRepo) GetByDB(ctx context.Context, db string) ([]entity.HistoryI
 
 func (r *HistoryRepo) GetItem(ctx context.Context, id int) (*entity.HistoryItem, error) {
 	item := new(entity.HistoryItem)
-	if err := r.db.SelectContext(ctx, &item, "SELECT * FROM history WHERE id=?", id); err != nil {
+	if err := r.db.GetContext(ctx, &item, "SELECT * FROM history WHERE id=?", id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, failure.NewNotFoundError(fmt.Errorf("history %d not found", id))
 		}
