@@ -15,13 +15,13 @@ import (
 	"context"
 	"errors"
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 	"log"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	"path"
 	"syscall"
 )
 
@@ -96,18 +96,6 @@ func newHttpServer(l *slog.Logger,
 	rtr := mux.NewRouter()
 	restServer.RegisterRoutes(rtr)
 
-	rtr.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		filename := r.URL.Path
-
-		if path.Ext(filename) == "" {
-			if filename == "/" {
-				filename = "/index"
-			}
-			filename += ".html"
-		}
-		http.ServeFile(w, r, path.Join("web", filename))
-	})
-
 	var sensitiveFields = []string{
 		"password", "authorisation",
 	}
@@ -126,8 +114,13 @@ func newHttpServer(l *slog.Logger,
 		}),
 	)
 
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+	})
+
 	return &http.Server{
-		Handler:      rtr,
+		Handler:      c.Handler(rtr),
 		Addr:         cfg.Addr,
 		ReadTimeout:  cfg.ReadTimeout,
 		WriteTimeout: cfg.WriteTimeout,
