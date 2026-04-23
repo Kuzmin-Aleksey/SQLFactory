@@ -47,7 +47,7 @@ type HttpServerConfig struct {
 	Addr            string        `yaml:"addr" env:"HTTP_ADDR" env-default:"localhost:8080"`
 	ReadTimeout     time.Duration `yaml:"read_timeout" env:"HTTP_READ_TIMEOUT" env-default:"10s"`
 	WriteTimeout    time.Duration `yaml:"write_timeout" env:"HTTP_WRITE_TIMEOUT" env-default:"10s"`
-	HandleTimeout   time.Duration `json:"handle_timeout" env:"HTTP_HANDE_TIMEOUT" env-default:"10s"`
+	HandleTimeout   time.Duration `yaml:"handle_timeout" env:"HTTP_HANDLE_TIMEOUT" env-default:"10s"`
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout" env:"HTTP_SHUTDOWN_TIMEOUT" env-default:"10s"`
 	Log             HttpLog       `yaml:"log"`
 }

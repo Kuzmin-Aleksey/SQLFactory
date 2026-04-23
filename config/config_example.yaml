@@ -11,7 +11,7 @@ http_server:
     response_logging_content:
       - "application/json"
 
-auth_service:
+auth:
   access_token_ttl: 1h
   refresh_token_ttl: 720h
   access_token_sign_key: "rand_string"
