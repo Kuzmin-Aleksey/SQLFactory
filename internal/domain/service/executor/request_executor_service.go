@@ -64,6 +64,7 @@ type LLMExecuteResult struct {
 	TableData value.JsonValue `json:"table_data"`
 	ChartType string          `json:"chart_type"`
 	Reasoning value.JsonValue `json:"reasoning"`
+	HistoryId int             `json:"history_id"`
 }
 
 type ExecuteResult struct {
@@ -145,6 +146,7 @@ func (s *Service) ExecuteUserRequest(ctx context.Context, connConfig sqlrunner.C
 		TableData: tableData,
 		ChartType: llmResp.ChartType,
 		Reasoning: value.JsonValue(reasoningJson),
+		HistoryId: historyItem.Id,
 	}, nil
 }
 
