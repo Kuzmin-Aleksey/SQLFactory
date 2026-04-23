@@ -18,7 +18,7 @@ FROM golang:1.25.1-alpine3.21 AS builder
 
 RUN \
     apk update && \
-    apk add git
+    apk add git ca-certificates
 
 COPY --from=modules /go/pkg /go/pkg
 COPY . /app
@@ -30,6 +30,7 @@ RUN go build --buildvcs=true -o /bin/app ./cmd/SQLFactory/main.go
 # Step 3: Reduce the size as much as possible
 FROM scratch
 
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /bin/app /app
 COPY --from=builder /app/config/config.yaml /config/config.yaml
 

@@ -97,6 +97,11 @@ func (s *AuthServer) MwAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
+		if contextx.GetSkipAuth(ctx) {
+			next(w, r)
+			return
+		}
+
 		header := strings.Split(r.Header.Get("Authorization"), " ")
 		if len(header) != 2 {
 			writeAndLogErr(ctx, w, failure.NewInvalidRequestError(errors.New("invalid authorization header")))

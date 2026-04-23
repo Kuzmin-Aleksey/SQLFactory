@@ -100,11 +100,7 @@ func newHttpServer(l *slog.Logger,
 	restDictServer := httpserver.NewDictServer(dictService)
 	restExecutorServer := httpserver.NewExecutorServer(executorService)
 
-	var restServer restServerInterface = httpserver.NewServer(restAuthServer, restTemplatesServer, restHistoryServer, restDictServer, restExecutorServer)
-
-	if !cfg.EnableAuth {
-		restServer = newServerDisableAuth(restServer)
-	}
+	restServer := httpserver.NewServer(restAuthServer, restTemplatesServer, restHistoryServer, restDictServer, restExecutorServer)
 
 	rtr := mux.NewRouter()
 	restServer.RegisterRoutes(rtr)
@@ -127,6 +123,11 @@ func newHttpServer(l *slog.Logger,
 		}),
 		middlewarex.WithTimeout(cfg.HandleTimeout),
 	)
+
+	if cfg.DisableAuth {
+		log.Println("disable auth")
+		rtr.Use(middlewarex.NewScipAuthMw(contextx.UserId(debugUserId)))
+	}
 
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
