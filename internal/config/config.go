@@ -46,9 +46,9 @@ type RedisConfig struct {
 
 type HttpServerConfig struct {
 	Addr            string        `yaml:"addr" env:"HTTP_ADDR" env-default:"localhost:8080"`
-	ReadTimeout     time.Duration `yaml:"read_timeout" env:"HTTP_READ_TIMEOUT" env-default:"10s"`
-	WriteTimeout    time.Duration `yaml:"write_timeout" env:"HTTP_WRITE_TIMEOUT" env-default:"10s"`
-	HandleTimeout   time.Duration `yaml:"handle_timeout" env:"HTTP_HANDLE_TIMEOUT" env-default:"10s"`
+	ReadTimeout     time.Duration `yaml:"read_timeout" env:"HTTP_READ_TIMEOUT"`
+	WriteTimeout    time.Duration `yaml:"write_timeout" env:"HTTP_WRITE_TIMEOUT"`
+	HandleTimeout   time.Duration `yaml:"handle_timeout" env:"HTTP_HANDLE_TIMEOUT"`
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout" env:"HTTP_SHUTDOWN_TIMEOUT" env-default:"10s"`
 	DisableAuth     bool          `yaml:"disable_auth" env:"HTTP_DISABLE_AUTH" env-default:"false"`
 	Log             HttpLog       `yaml:"log"`

@@ -133,8 +133,11 @@ func newHttpServer(l *slog.Logger,
 			LoggingContent:  cfg.Log.ResponseLoggingContent,
 			SensitiveFields: sensitiveFields,
 		}),
-		middlewarex.WithTimeout(cfg.HandleTimeout),
 	)
+
+	if cfg.HandleTimeout != 0 {
+		rtr.Use(middlewarex.WithTimeout(cfg.HandleTimeout))
+	}
 
 	if cfg.DisableAuth {
 		log.Println("disable auth")
