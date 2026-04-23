@@ -1,4 +1,4 @@
-package middlwarex
+package middlewarex
 
 import (
 	"SQLFactory/internal/util"

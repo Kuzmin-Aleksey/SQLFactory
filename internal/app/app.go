@@ -11,7 +11,7 @@ import (
 	"SQLFactory/internal/infrastructure/persistence/redis"
 	"SQLFactory/internal/server/httpserver"
 	"SQLFactory/pkg/contextx"
-	"SQLFactory/pkg/middlwarex"
+	"SQLFactory/pkg/middlewarex"
 	"context"
 	"errors"
 	"github.com/gorilla/mux"
@@ -101,17 +101,18 @@ func newHttpServer(l *slog.Logger,
 	}
 
 	rtr.Use(
-		middlwarex.AddTraceId,
-		middlwarex.NewLogRequest(&middlwarex.LogOptions{
+		middlewarex.AddTraceId,
+		middlewarex.NewLogRequest(&middlewarex.LogOptions{
 			MaxContentLen:   cfg.Log.MaxRequestContentLen,
 			LoggingContent:  cfg.Log.RequestLoggingContent,
 			SensitiveFields: sensitiveFields,
 		}),
-		middlwarex.NewLogResponse(&middlwarex.LogOptions{
+		middlewarex.NewLogResponse(&middlewarex.LogOptions{
 			MaxContentLen:   cfg.Log.MaxResponseContentLen,
 			LoggingContent:  cfg.Log.ResponseLoggingContent,
 			SensitiveFields: sensitiveFields,
 		}),
+		middlewarex.WithTimeout(cfg.HandleTimeout),
 	)
 
 	c := cors.New(cors.Options{
