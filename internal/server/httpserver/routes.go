@@ -8,12 +8,12 @@ import (
 func (s *Server) RegisterRoutes(rtr *mux.Router) {
 	// API docs
 	rtr.HandleFunc("/openapi.yaml", s.serveOpenAPI).Methods(http.MethodGet, http.MethodHead)
-	rtr.HandleFunc("/swagger", s.serveSwaggerUI).Methods(http.MethodGet, http.MethodHead)
-	rtr.HandleFunc("/swagger/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/swagger", http.StatusMovedPermanently)
+	rtr.HandleFunc("/swagger", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/swagger/", http.StatusMovedPermanently)
 	}).Methods(http.MethodGet, http.MethodHead)
+	rtr.PathPrefix("/swagger/").Handler(s.swaggerUIHandler())
 	rtr.HandleFunc("/docs", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/swagger", http.StatusFound)
+		http.Redirect(w, r, "/swagger/", http.StatusFound)
 	}).Methods(http.MethodGet, http.MethodHead)
 
 	rtr.HandleFunc("/api/auth/register", s.Register).Methods(http.MethodPost)
