@@ -1,5 +1,6 @@
 .idea
 **/*log
+/db/testdata/*.csv
 config/config.yaml
 *.exe
 *.drawio.bkp
