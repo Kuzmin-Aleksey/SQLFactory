@@ -81,6 +81,7 @@ func (s *AuthServer) Refresh(w http.ResponseWriter, r *http.Request) {
 	refreshToken := r.FormValue("refresh_token")
 	if refreshToken == "" {
 		writeAndLogErr(ctx, w, failure.NewInvalidRequestError(errors.New("refresh_token is required")))
+		return
 	}
 
 	tokens, err := s.service.Refresh(ctx, refreshToken)

@@ -46,6 +46,7 @@ func (s *ExecutorServer) testConnect(w http.ResponseWriter, r *http.Request) {
 		} else {
 			writeAndLogErr(ctx, w, err)
 		}
+		return
 	}
 	writeJson(ctx, w, respId{Id: dbId}, http.StatusOK)
 }
@@ -82,6 +83,7 @@ func (s *ExecutorServer) executeUserPrompt(w http.ResponseWriter, r *http.Reques
 		} else {
 			writeAndLogErr(ctx, w, err)
 		}
+		return
 	}
 	writeJson(ctx, w, result, http.StatusOK)
 }
@@ -119,6 +121,7 @@ func (s *ExecutorServer) executeTemplate(w http.ResponseWriter, r *http.Request)
 		} else {
 			writeAndLogErr(ctx, w, err)
 		}
+		return
 	}
 
 	writeJson(ctx, w, result, http.StatusOK)
@@ -157,6 +160,7 @@ func (s *ExecutorServer) executeHistory(w http.ResponseWriter, r *http.Request) 
 		} else {
 			writeAndLogErr(ctx, w, err)
 		}
+		return
 	}
 
 	writeJson(ctx, w, result, http.StatusOK)
