@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/sha512"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -198,8 +199,9 @@ func (s *Service) ExecuteHistoryItem(ctx context.Context, connConfig sqlrunner.C
 
 func hashConnConfig(connCfg sqlrunner.ConnectionRequest) string {
 	hash := sha512.New()
+	hash.Write([]byte(connCfg.DBType))
 	hash.Write([]byte(connCfg.Host))
 	binary.Write(hash, binary.BigEndian, connCfg.Port)
 	hash.Write([]byte(connCfg.Database))
-	return string(hash.Sum(nil))
+	return hex.EncodeToString(hash.Sum(nil))
 }
