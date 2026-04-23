@@ -62,51 +62,16 @@ func NewClient(cfg config.GigaChatConfig) (*Client, error) {
 	return client, nil
 }
 
-func (c *Client) GenerateRequest(ctx context.Context, request string, dict map[string]string, schema any) (string, error) {
+func (c *Client) GenerateSQL(ctx context.Context, request string, dict map[string]string, schema any, dbType string) (*executor.LLMResponse, error) {
 	schemaJSON, _ := json.Marshal(schema)
 	dictJSON, _ := json.Marshal(dict)
-
-	prompt := strings.TrimSpace(fmt.Sprintf(`
-Ты — продвинутый SQL-ассистент и лингвистический нормализатор запросов. Твоя задача — преобразовать пользовательский запрос на естественном языке в понятный запрос с учетом словаря и схемы бд для последующей генерации SQL-кода.
-
-**Входные данные (ты получишь их в сообщении пользователя):**
-1. user_text: Исходный текст на естественном языке.
-2. dict: Сопоставление [Сленг/Синоним] -> [Каноническое название поля/таблицы].
-3. schema: Описание таблиц, полей и связей.
-
-
-Rules:
-- Do not include SQL in this step.
-
-Вход:
-user_text: %s
-dict: %s
-schema: %s
-
-Верни только переработанный запрос.
-`, request, string(dictJSON), string(schemaJSON)))
-
-	res, err := c.request(ctx, []AIMessage{
-		{
-			Role:    "user",
-			Content: prompt,
-		},
-	}, 0.4)
-
-	if err != nil {
-		return "", failure.NewInternalError(err)
-	}
-	return res, nil
-}
-
-func (c *Client) GenerateSQL(ctx context.Context, request string, schema any, dbType string) (*executor.LLMResponse, error) {
-	schemaJSON, _ := json.Marshal(schema)
 
 	prompt := strings.TrimSpace(fmt.Sprintf(`
 Ты — аналитический ассистент, который преобразует запросы пользователей на естественном языке в SQL и предлагает подходящий тип визуализации. На вход подаются:
 - 'user_query' — текст запроса пользователя;
 - 'db_schema' — описание схемы базы данных (таблицы, поля, связи);
 - 'db_type' — строка с типом СУБД (например, "PostgreSQL", "MySQL", "ClickHouse" и т. п.).
+- 'dict' — Сопоставление [Сленг/Синоним] -> [Каноническое название поля/таблицы].
 
 Твоя задача:
 1. Понять, какую аналитику хочет получить пользователь.
@@ -136,14 +101,10 @@ func (c *Client) GenerateSQL(ctx context.Context, request string, schema any, db
 
 Теперь примени эти правила к следующим входным данным:
 user_request: %s
+dict: %s
 db_schema: %s
 db_type: %s
-
-
-
-Return JSON with keys:
-
-`, request, string(schemaJSON), dbType))
+`, request, string(dictJSON), string(schemaJSON), dbType))
 
 	out := new(executor.LLMResponse)
 	res, err := c.request(ctx, []AIMessage{

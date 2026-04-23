@@ -36,8 +36,7 @@ type LLMResponse struct {
 }
 
 type LLM interface {
-	GenerateRequest(ctx context.Context, request string, dict map[string]string, schema any) (string, error)
-	GenerateSQL(ctx context.Context, request string, schema any, dbType string) (*LLMResponse, error)
+	GenerateSQL(ctx context.Context, request string, dict map[string]string, schema any, dbType string) (*LLMResponse, error)
 }
 
 type Service struct {
@@ -104,14 +103,8 @@ func (s *Service) ExecuteUserRequest(ctx context.Context, connConfig sqlrunner.C
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-
-	refactorRequest, err := s.llm.GenerateRequest(ctx, prompt, dict, schema)
-	l.Debug("generated refactoring request", "refactorRequest", refactorRequest)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-
-	llmResp, err := s.llm.GenerateSQL(ctx, refactorRequest, schema, connConfig.DBType)
+	
+	llmResp, err := s.llm.GenerateSQL(ctx, prompt, dict, schema, connConfig.DBType)
 	l.Debug("generated llm response", "llmResp", llmResp)
 
 	if err != nil {

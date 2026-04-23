@@ -34,42 +34,14 @@ func NewClient(ctx context.Context, cfg config.GeminiConfig) (*Client, error) {
 	return &Client{model: cfg.Model, client: c}, nil
 }
 
-func (c *Client) GenerateRequest(ctx context.Context, request string, dict map[string]string, schema any) (string, error) {
+func (c *Client) GenerateSQL(ctx context.Context, request string, dict map[string]string, schema any, dbType string) (*executor.LLMResponse, error) {
 	schemaJSON, _ := json.Marshal(schema)
 	dictJSON, _ := json.Marshal(dict)
 
 	prompt := strings.TrimSpace(fmt.Sprintf(`
-You are an assistant that converts a user's natural language analytics request into a refactored request.
+You are an assistant that converts a user's natural language analytics request into a single read-only SQL query for analytics.
 
-Rules:
-- No markdown. No extra text.
-- Do not include SQL in this step.
-
-Input:
-user_text: %s
-dict: %s
-schema: %s
-
-Return only refactored user request.
-`, request, string(dictJSON), string(schemaJSON)))
-
-	res, err := c.client.Models.GenerateContent(
-		ctx,
-		c.model,
-		genai.Text(prompt),
-		nil,
-	)
-	if err != nil {
-		return "", failure.NewInternalError(err)
-	}
-	return res.Text(), nil
-}
-
-func (c *Client) GenerateSQL(ctx context.Context, request string, schema any, dbType string) (*executor.LLMResponse, error) {
-	schemaJSON, _ := json.Marshal(schema)
-
-	prompt := strings.TrimSpace(fmt.Sprintf(`
-You generate a single read-only SQL query for analytics.
+First, internally refactor/normalize the user request using the dictionary and schema context. Then generate the SQL.
 
 Hard rules:
 - Output MUST be valid JSON only. No markdown. No extra text.
@@ -79,7 +51,8 @@ Hard rules:
 
 Input:
 database: %s
-user_request: %s
+user_text: %s
+dict: %s
 schema: %s
 
 Return JSON with keys:
@@ -89,7 +62,7 @@ Return JSON with keys:
   "explanation_steps": []string,
   "chart_type": "none"|"line"|"pie"|"histogram",
 }
-`, dbType, request, string(schemaJSON)))
+`, dbType, request, string(dictJSON), string(schemaJSON)))
 
 	out := new(executor.LLMResponse)
 	if err := c.generateJSON(ctx, prompt, out); err != nil {
