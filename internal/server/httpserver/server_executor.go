@@ -51,6 +51,10 @@ func (s *ExecutorServer) testConnect(w http.ResponseWriter, r *http.Request) {
 	writeJson(ctx, w, respId{Id: dbId}, http.StatusOK)
 }
 
+type LLMErrorResponse struct {
+	LLMError string `json:"llm_error"`
+}
+
 func (s *ExecutorServer) executeUserPrompt(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -75,10 +79,13 @@ func (s *ExecutorServer) executeUserPrompt(w http.ResponseWriter, r *http.Reques
 
 	result, err := s.service.ExecuteUserRequest(ctx, connCfg, prompt)
 	if err != nil {
-		var errSQlExternal failure.ExternalDBError
-		if errors.As(err, &errSQlExternal) {
+		if errSQlExternal := new(failure.ExternalDBError); errors.As(err, errSQlExternal) {
 			writeJson(ctx, w, errorResponse{
 				Error: errSQlExternal.Error(),
+			}, http.StatusOK)
+		} else if llmError := new(failure.LLMError); errors.As(err, llmError) {
+			writeJson(ctx, w, LLMErrorResponse{
+				LLMError: llmError.LLMMessage,
 			}, http.StatusOK)
 		} else {
 			writeAndLogErr(ctx, w, err)

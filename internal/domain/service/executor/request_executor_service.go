@@ -5,11 +5,13 @@ import (
 	"SQLFactory/internal/domain/service/sqlrunner"
 	"SQLFactory/internal/domain/value"
 	"SQLFactory/pkg/contextx"
+	"SQLFactory/pkg/failure"
 	"context"
 	"crypto/sha512"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -58,16 +60,18 @@ func NewService(history History, templates Templates, dict Dict, sqlRunner *sqlr
 }
 
 type LLMExecuteResult struct {
-	Query     string          `json:"query"`
-	Title     string          `json:"title"`
-	TableData value.JsonValue `json:"table_data"`
-	ChartType string          `json:"chart_type"`
-	Reasoning value.JsonValue `json:"reasoning"`
-	HistoryId int             `json:"history_id"`
+	Query        string          `json:"query"`
+	Title        string          `json:"title"`
+	TableData    value.JsonValue `json:"table_data"`
+	ChartType    string          `json:"chart_type"`
+	Reasoning    value.JsonValue `json:"reasoning"`
+	HistoryId    int             `json:"history_id"`
+	ExecuteError string          `json:"execute_error,omitempty"`
 }
 
 type ExecuteResult struct {
-	TableData value.JsonValue `json:"table_data"`
+	TableData    value.JsonValue `json:"table_data"`
+	ExecuteError string          `json:"execute_error,omitempty"`
 }
 
 func (s *Service) Connect(ctx context.Context, connCfg sqlrunner.ConnectionRequest) (string, error) {
@@ -103,48 +107,60 @@ func (s *Service) ExecuteUserRequest(ctx context.Context, connConfig sqlrunner.C
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-	
+
 	llmResp, err := s.llm.GenerateSQL(ctx, prompt, dict, schema, connConfig.DBType)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
 	l.Debug("generated llm response", "llmResp", llmResp)
-
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-
-	result, err := conn.Query(ctx, llmResp.SQL)
-
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-	jsonResult, _ := json.Marshal(result)
-	tableData := value.JsonValue(jsonResult)
 
 	reasoningJson, _ := json.Marshal(llmResp.ExplanationSteps)
 
-	historyItem := &entity.HistoryItem{
-		UserID:    int(contextx.GetUserId(ctx)),
-		DB:        hashConnConfig(connConfig),
-		CreateAt:  time.Now(),
-		Title:     llmResp.Title,
-		Prompt:    prompt,
-		Query:     llmResp.SQL,
-		TableData: tableData,
-		ChartType: llmResp.ChartType,
-		Reasoning: value.JsonValue(reasoningJson),
-	}
+	result, err := conn.Query(ctx, llmResp.SQL)
+	var executeError string
 
-	if err := s.history.SaveItem(ctx, historyItem); err != nil {
-		contextx.GetLoggerOrDefault(ctx).Error("failed save history", "err", err, "HistoryItem", historyItem)
-	}
+	if err != nil {
+		if dbError := new(failure.ExternalDBError); errors.As(err, dbError) {
+			executeError = dbError.Error()
+		} else {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+		return &LLMExecuteResult{
+			Query:        llmResp.SQL,
+			Title:        llmResp.Title,
+			Reasoning:    value.JsonValue(reasoningJson),
+			ExecuteError: executeError,
+		}, nil
 
-	return &LLMExecuteResult{
-		Query:     llmResp.SQL,
-		Title:     llmResp.Title,
-		TableData: tableData,
-		ChartType: llmResp.ChartType,
-		Reasoning: value.JsonValue(reasoningJson),
-		HistoryId: historyItem.Id,
-	}, nil
+	} else {
+		jsonResult, _ := json.Marshal(result)
+		tableData := value.JsonValue(jsonResult)
+
+		historyItem := &entity.HistoryItem{
+			UserID:    int(contextx.GetUserId(ctx)),
+			DB:        hashConnConfig(connConfig),
+			CreateAt:  time.Now(),
+			Title:     llmResp.Title,
+			Prompt:    prompt,
+			Query:     llmResp.SQL,
+			TableData: tableData,
+			ChartType: llmResp.ChartType,
+			Reasoning: value.JsonValue(reasoningJson),
+		}
+
+		if err := s.history.SaveItem(ctx, historyItem); err != nil {
+			contextx.GetLoggerOrDefault(ctx).Error("failed save history", "err", err, "HistoryItem", historyItem)
+		}
+
+		return &LLMExecuteResult{
+			Query:     llmResp.SQL,
+			Title:     llmResp.Title,
+			TableData: tableData,
+			ChartType: llmResp.ChartType,
+			Reasoning: value.JsonValue(reasoningJson),
+			HistoryId: historyItem.Id,
+		}, nil
+	}
 }
 
 func (s *Service) ExecuteTemplate(ctx context.Context, connConfig sqlrunner.ConnectionRequest, templateId int) (*ExecuteResult, error) {
@@ -159,6 +175,11 @@ func (s *Service) ExecuteTemplate(ctx context.Context, connConfig sqlrunner.Conn
 		ConnectionRequest: connConfig,
 	})
 	if err != nil {
+		if dbError := new(failure.ExternalDBError); errors.As(err, dbError) {
+			return &ExecuteResult{
+				ExecuteError: dbError.Error(),
+			}, nil
+		}
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -181,6 +202,11 @@ func (s *Service) ExecuteHistoryItem(ctx context.Context, connConfig sqlrunner.C
 		ConnectionRequest: connConfig,
 	})
 	if err != nil {
+		if dbError := new(failure.ExternalDBError); errors.As(err, dbError) {
+			return &ExecuteResult{
+				ExecuteError: dbError.Error(),
+			}, nil
+		}
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 

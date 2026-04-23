@@ -62,6 +62,10 @@ func NewClient(cfg config.GigaChatConfig) (*Client, error) {
 	return client, nil
 }
 
+type errorResponse struct {
+	Error string `json:"error"`
+}
+
 func (c *Client) GenerateSQL(ctx context.Context, request string, dict map[string]string, schema any, dbType string) (*executor.LLMResponse, error) {
 	schemaJSON, _ := json.Marshal(schema)
 	dictJSON, _ := json.Marshal(dict)
@@ -97,6 +101,11 @@ func (c *Client) GenerateSQL(ctx context.Context, request string, dict map[strin
   "chart_type": "none" | "line" | "pie" | "histogram"
 }
 
+Или верни ошибку если запрос пользователя некорректен:
+{
+  "error": "..."
+}
+
 Не добавляй никаких пояснений вне JSON. Строки внутри JSON экранируй должным образом.
 
 Теперь примени эти правила к следующим входным данным:
@@ -106,7 +115,6 @@ db_schema: %s
 db_type: %s
 `, request, string(dictJSON), string(schemaJSON), dbType))
 
-	out := new(executor.LLMResponse)
 	res, err := c.request(ctx, []AIMessage{
 		{
 			Role:    "user",
@@ -117,12 +125,16 @@ db_type: %s
 		return nil, failure.NewInternalError(err)
 	}
 
-	if err := json.Unmarshal([]byte(res), out); err != nil {
-		return nil, failure.NewInvalidRequestError(fmt.Errorf("gigachat returned non-json: %w", err))
+	rawRes := []byte(res)
+
+	llmErr := new(errorResponse)
+	if json.Unmarshal(rawRes, llmErr); llmErr.Error != "" {
+		return nil, failure.NewLLMError(llmErr.Error)
 	}
 
-	if out.SQL == "" {
-		return nil, failure.NewInternalError(errors.New("gigachat returned empty SQL"))
+	out := new(executor.LLMResponse)
+	if err := json.Unmarshal(rawRes, out); err != nil {
+		return nil, failure.NewInvalidRequestError(fmt.Errorf("gigachat returned non-json: %w", err))
 	}
 
 	return out, nil

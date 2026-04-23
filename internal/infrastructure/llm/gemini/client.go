@@ -34,6 +34,10 @@ func NewClient(ctx context.Context, cfg config.GeminiConfig) (*Client, error) {
 	return &Client{model: cfg.Model, client: c}, nil
 }
 
+type errorResponse struct {
+	Error string `json:"error"`
+}
+
 func (c *Client) GenerateSQL(ctx context.Context, request string, dict map[string]string, schema any, dbType string) (*executor.LLMResponse, error) {
 	schemaJSON, _ := json.Marshal(schema)
 	dictJSON, _ := json.Marshal(dict)
@@ -62,11 +66,34 @@ Return JSON with keys:
   "explanation_steps": []string,
   "chart_type": "none"|"line"|"pie"|"histogram",
 }
+
+Or return an error if the user's request is incorrect:
+{
+  "error": "..."
+}
+
 `, dbType, request, string(dictJSON), string(schemaJSON)))
 
-	out := new(executor.LLMResponse)
-	if err := c.generateJSON(ctx, prompt, out); err != nil {
+	res, err := c.client.Models.GenerateContent(
+		ctx,
+		c.model,
+		genai.Text(prompt),
+		nil,
+	)
+	if err != nil {
 		return nil, failure.NewInternalError(err)
+	}
+
+	rawRes := []byte(res.Text())
+
+	llmErr := new(errorResponse)
+	if json.Unmarshal(rawRes, llmErr); llmErr.Error != "" {
+		return nil, failure.NewLLMError(llmErr.Error)
+	}
+
+	out := new(executor.LLMResponse)
+	if err := json.Unmarshal(rawRes, out); err != nil {
+		return nil, failure.NewInvalidRequestError(fmt.Errorf("gemini returned non-json: %w", err))
 	}
 	return out, nil
 }
