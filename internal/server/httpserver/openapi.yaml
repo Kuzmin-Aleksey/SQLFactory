@@ -60,6 +60,14 @@ components:
         id:
           type: integer
 
+    DbIdResponse:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+          description: Идентификатор подключения/БД, который возвращает executor.Connect
+
     Template:
       type: object
       properties:
@@ -515,4 +523,30 @@ paths:
               schema:
                 oneOf:
                   - $ref: '#/components/schemas/ExecuteResult'
+                  - $ref: '#/components/schemas/Error'
+
+  /api/executor/test-connect:
+    post:
+      tags: [executor]
+      summary: Проверить подключение к внешней БД
+      description: |
+        В роутере метод не ограничен; в Swagger используется POST с `application/x-www-form-urlencoded`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConnectionForm'
+      responses:
+        '200':
+          description: |
+            Успех — возвращает `{ "id": "<dbId>" }`.
+            При ошибке внешней БД сервер может вернуть HTTP 200 с `{ "error": "..." }`.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/DbIdResponse'
                   - $ref: '#/components/schemas/Error'
