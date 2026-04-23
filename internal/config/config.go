@@ -15,6 +15,7 @@ type Config struct {
 	HttpServer HttpServerConfig `yaml:"http_server"`
 	Auth       AuthConfig       `yaml:"auth"`
 	SQLRunner  SQLRunnerConfig  `yaml:"sql_runner"`
+	Gemini     GeminiConfig     `yaml:"gemini"`
 }
 
 type AuthConfig struct {
@@ -59,6 +60,11 @@ type HttpLog struct {
 
 type SQLRunnerConfig struct {
 	MaxRows int `yaml:"max_rows" env:"SQL_MAX_ROWS" env-default:"1000"`
+}
+
+type GeminiConfig struct {
+	Model  string `yaml:"model" env:"GEMINI_MODEL" env-default:"gemini-3-flash-preview"`
+	ApiKey string `yaml:"api_key" env:"GEMINI_API_KEY"`
 }
 
 func ReadConfig(path string, dotenv ...string) (*Config, error) {

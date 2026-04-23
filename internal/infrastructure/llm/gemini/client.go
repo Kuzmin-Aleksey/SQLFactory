@@ -1,6 +1,7 @@
 package gemini
 
 import (
+	"SQLFactory/internal/config"
 	"SQLFactory/internal/domain/service/executor"
 	"SQLFactory/pkg/failure"
 	"context"
@@ -23,15 +24,14 @@ type Client struct {
 	client *genai.Client
 }
 
-func NewClient(ctx context.Context, model string) (*Client, error) {
-	c, err := genai.NewClient(ctx, nil)
+func NewClient(ctx context.Context, cfg config.GeminiConfig) (*Client, error) {
+	c, err := genai.NewClient(ctx, &genai.ClientConfig{
+		APIKey: cfg.ApiKey,
+	})
 	if err != nil {
 		return nil, failure.NewInternalError(err)
 	}
-	if model == "" {
-		model = "gemini-3-flash-preview"
-	}
-	return &Client{model: model, client: c}, nil
+	return &Client{model: cfg.Model, client: c}, nil
 }
 
 func (c *Client) GenerateRequest(ctx context.Context, request string, dict map[string]string, schema any) (string, error) {

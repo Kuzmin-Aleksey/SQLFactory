@@ -49,7 +49,7 @@ func Run(cfg *config.Config) {
 		log.Fatal("redis: ", err)
 	}
 
-	llm, err := gemini.NewClient(context.Background(), "")
+	llm, err := gemini.NewClient(context.Background(), cfg.Gemini)
 	if err != nil {
 		log.Fatal("gemini: ", err)
 	}
