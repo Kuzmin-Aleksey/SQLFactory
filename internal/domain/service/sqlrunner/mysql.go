@@ -49,6 +49,7 @@ func queryMySQLWithDB(ctx context.Context, db *sql.DB, q string, maxRows int) (*
 	}
 
 	res := &QueryResult{Header: cols}
+	res.Data = make([][]string, 0)
 	for rows.Next() {
 		if maxRows > 0 && len(res.Data) >= maxRows {
 			break

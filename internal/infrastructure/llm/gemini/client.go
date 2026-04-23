@@ -65,7 +65,7 @@ Return only refactored user request.
 	return res.Text(), nil
 }
 
-func (c *Client) GenerateSQL(ctx context.Context, request string, schema any) (*executor.LLMResponse, error) {
+func (c *Client) GenerateSQL(ctx context.Context, request string, schema any, dbType string) (*executor.LLMResponse, error) {
 	schemaJSON, _ := json.Marshal(schema)
 
 	prompt := strings.TrimSpace(fmt.Sprintf(`
@@ -78,6 +78,7 @@ Hard rules:
 - Must include LIMIT.
 
 Input:
+database: %s
 user_request: %s
 schema: %s
 
@@ -88,7 +89,7 @@ Return JSON with keys:
   "explanation_steps": []string,
   "chart_type": "none"|"line"|"pie"|"histogram",
 }
-`, request, string(schemaJSON)))
+`, dbType, request, string(schemaJSON)))
 
 	out := new(executor.LLMResponse)
 	if err := c.generateJSON(ctx, prompt, out); err != nil {

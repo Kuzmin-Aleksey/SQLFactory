@@ -52,6 +52,7 @@ func queryPostgresWithPool(ctx context.Context, pool *pgxpool.Pool, q string, ma
 	}
 
 	res := &QueryResult{Header: cols}
+	res.Data = make([][]string, 0)
 	for rows.Next() {
 		if maxRows > 0 && len(res.Data) >= maxRows {
 			break

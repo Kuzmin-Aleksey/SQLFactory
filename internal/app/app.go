@@ -7,6 +7,7 @@ import (
 	"SQLFactory/internal/domain/service/executor"
 	"SQLFactory/internal/domain/service/sqlrunner"
 	"SQLFactory/internal/infrastructure/llm/gemini"
+	"SQLFactory/internal/infrastructure/llm/gigachat"
 	"SQLFactory/internal/infrastructure/persistence/mysql"
 	"SQLFactory/internal/infrastructure/persistence/redis"
 	"SQLFactory/internal/server/httpserver"
@@ -54,9 +55,20 @@ func Run(cfg *config.Config) {
 		log.Fatal("redis: ", err)
 	}
 
-	llm, err := gemini.NewClient(context.Background(), cfg.Gemini)
-	if err != nil {
-		log.Fatal("gemini: ", err)
+	var llm executor.LLM
+	switch cfg.LLM.Name {
+	case "gigachat":
+		llm, err = gigachat.NewClient(cfg.LLM.GigaChat)
+		if err != nil {
+			log.Fatal("gigachat: ", err)
+		}
+	case "gemini":
+		llm, err = gemini.NewClient(context.Background(), cfg.LLM.Gemini)
+		if err != nil {
+			log.Fatal("gemini: ", err)
+		}
+	default:
+		log.Fatal("unknown llm: ", cfg.LLM.Name)
 	}
 
 	usersRepo := mysql.NewUsersRepo(db)

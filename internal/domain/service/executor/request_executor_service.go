@@ -37,7 +37,7 @@ type LLMResponse struct {
 
 type LLM interface {
 	GenerateRequest(ctx context.Context, request string, dict map[string]string, schema any) (string, error)
-	GenerateSQL(ctx context.Context, request string, schema any) (*LLMResponse, error)
+	GenerateSQL(ctx context.Context, request string, schema any, dbType string) (*LLMResponse, error)
 }
 
 type Service struct {
@@ -86,6 +86,7 @@ func (s *Service) Connect(ctx context.Context, connCfg sqlrunner.ConnectionReque
 
 func (s *Service) ExecuteUserRequest(ctx context.Context, connConfig sqlrunner.ConnectionRequest, prompt string) (*LLMExecuteResult, error) {
 	const op = "request_template_service/ExecuteUserRequest"
+	l := contextx.GetLoggerOrDefault(ctx)
 
 	conn, err := s.sqlRunner.Connect(ctx, connConfig)
 	if err != nil {
@@ -105,11 +106,14 @@ func (s *Service) ExecuteUserRequest(ctx context.Context, connConfig sqlrunner.C
 	}
 
 	refactorRequest, err := s.llm.GenerateRequest(ctx, prompt, dict, schema)
+	l.Debug("generated refactoring request", "refactorRequest", refactorRequest)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	llmResp, err := s.llm.GenerateSQL(ctx, refactorRequest, schema)
+	llmResp, err := s.llm.GenerateSQL(ctx, refactorRequest, schema, connConfig.DBType)
+	l.Debug("generated llm response", "llmResp", llmResp)
+
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}

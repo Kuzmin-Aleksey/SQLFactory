@@ -15,7 +15,7 @@ type Config struct {
 	HttpServer HttpServerConfig `yaml:"http_server"`
 	Auth       AuthConfig       `yaml:"auth"`
 	SQLRunner  SQLRunnerConfig  `yaml:"sql_runner"`
-	Gemini     GeminiConfig     `yaml:"gemini"`
+	LLM        LLMConfig        `yaml:"llm"`
 	DebugUser  bool             `yaml:"debug_user" env:"DEBUG_USER" env-default:"true"`
 }
 
@@ -65,8 +65,19 @@ type SQLRunnerConfig struct {
 	MaxRows int `yaml:"max_rows" env:"SQL_MAX_ROWS" env-default:"1000"`
 }
 
+type LLMConfig struct {
+	Name     string         `yaml:"name" env:"LLM_NAME" env-default:"gigachat"`
+	Gemini   GeminiConfig   `yaml:"gemini"`
+	GigaChat GigaChatConfig `yaml:"gigachat"`
+}
+
 type GeminiConfig struct {
 	Model  string `yaml:"model" env:"GEMINI_MODEL" env-default:"gemini-3-flash-preview"`
+	ApiKey string `yaml:"api_key" env:"GEMINI_API_KEY"`
+}
+
+type GigaChatConfig struct {
+	Model  string `yaml:"model" env:"GEMINI_MODEL" env-default:"GigaChat-2-Pro"`
 	ApiKey string `yaml:"api_key" env:"GEMINI_API_KEY"`
 }
 
