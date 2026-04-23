@@ -117,6 +117,7 @@ func newHttpServer(l *slog.Logger,
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Content-Type", "Authorization", "X-Trace-Id"},
 	})
 
 	return &http.Server{
