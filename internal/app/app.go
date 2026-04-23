@@ -156,13 +156,10 @@ const (
 func createDebugUser(db *sqlx.DB) {
 	log.Println("creating debug user ", "email:", debugUserEmail, "password:", debugUserPassword)
 
-	var exist bool
-	if err := db.Get(&exist, "DELETE FROM users WHERE id=? ", debugUserId); err != nil {
+	if _, err := db.Exec("DELETE FROM users WHERE id=? ", debugUserId); err != nil {
 		log.Fatal("failed create debug user", err)
 	}
-	if exist {
-		return
-	}
+
 	if _, err := db.Exec("INSERT INTO users (id, email, name, password) VALUES (?, ?, ?, ?)", debugUserId, debugUserEmail, debugUserName, debugUserPassword); err != nil {
 		log.Fatal("failed create debug user", err)
 	}
