@@ -19,6 +19,37 @@ func NewExecutorServer(service *executor.Service) ExecutorServer {
 	}
 }
 
+func (s *ExecutorServer) testConnect(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var connCfg sqlrunner.ConnectionRequest
+	var err error
+
+	connCfg.Host = r.FormValue("host")
+	connCfg.Port, err = strconv.Atoi(r.FormValue("port"))
+	if err != nil {
+		writeAndLogErr(ctx, w, failure.NewInvalidRequestError(err))
+		return
+	}
+	connCfg.User = r.FormValue("user")
+	connCfg.Password = r.FormValue("password")
+	connCfg.Database = r.FormValue("database")
+	connCfg.DBType = r.FormValue("db_type")
+
+	dbId, err := s.service.Connect(ctx, connCfg)
+	if err != nil {
+		var errSQlExternal failure.ExternalDBError
+		if errors.As(err, &errSQlExternal) {
+			writeJson(ctx, w, errorResponse{
+				Error: errSQlExternal.Error(),
+			}, http.StatusOK)
+		} else {
+			writeAndLogErr(ctx, w, err)
+		}
+	}
+	writeJson(ctx, w, respId{Id: dbId}, http.StatusOK)
+}
+
 func (s *ExecutorServer) executeUserPrompt(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

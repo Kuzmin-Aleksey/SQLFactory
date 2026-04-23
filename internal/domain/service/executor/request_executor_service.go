@@ -68,6 +68,19 @@ type ExecuteResult struct {
 	TableData value.JsonValue `json:"table_data"`
 }
 
+func (s *Service) Connect(ctx context.Context, connCfg sqlrunner.ConnectionRequest) (string, error) {
+	const op = "request_template_service/Connect"
+
+	conn, err := s.sqlRunner.Connect(ctx, connCfg)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+	conn.Close()
+
+	dbId := hashConnConfig(connCfg)
+	return dbId, nil
+}
+
 func (s *Service) ExecuteUserRequest(ctx context.Context, connConfig sqlrunner.ConnectionRequest, prompt string) (*LLMExecuteResult, error) {
 	const op = "request_template_service/ExecuteUserRequest"
 

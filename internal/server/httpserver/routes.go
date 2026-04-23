@@ -35,7 +35,8 @@ func (s *Server) RegisterRoutes(rtr *mux.Router) {
 	rtr.HandleFunc("/api/dict/item", s.MwAuth(s.updateDictItem)).Methods(http.MethodPut)
 	rtr.HandleFunc("/api/dict/item", s.MwAuth(s.deleteDictItem)).Methods(http.MethodDelete)
 
-	rtr.HandleFunc("/api/executor/prompt", s.MwAuth(s.executeUserPrompt)).Methods(http.MethodPost)
-	rtr.HandleFunc("/api/executor/template", s.MwAuth(s.executeTemplate)).Methods(http.MethodPost)
-	rtr.HandleFunc("/api/executor/history", s.MwAuth(s.executeHistory)).Methods(http.MethodPost)
+	rtr.HandleFunc("/api/executor/test-connect", s.MwAuth(s.testConnect))
+	rtr.HandleFunc("/api/executor/prompt", s.MwAuth(s.executeUserPrompt))
+	rtr.HandleFunc("/api/executor/template", s.MwAuth(s.executeTemplate))
+	rtr.HandleFunc("/api/executor/history", s.MwAuth(s.executeHistory))
 }
