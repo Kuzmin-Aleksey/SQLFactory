@@ -20,7 +20,7 @@ func NewTemplatesRepo(db *sqlx.DB) *TemplatesRepo {
 }
 
 func (r *TemplatesRepo) SaveTemplate(ctx context.Context, template *entity.Template) error {
-	res, err := r.db.NamedExecContext(ctx, "INSERT INTO templates (db, title, query, chart_type) VALUES (:db_id, :title, :query, :chart_type)", template)
+	res, err := r.db.NamedExecContext(ctx, "INSERT INTO templates (db, title, query, chart_type) VALUES (:db, :title, :query, :chart_type)", template)
 	if err != nil {
 		return failure.NewInternalError(err)
 	}
