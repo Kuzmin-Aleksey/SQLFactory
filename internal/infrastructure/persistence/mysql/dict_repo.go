@@ -65,7 +65,7 @@ func (r *DictRepo) GetByDB(ctx context.Context, dbId string) (map[string]string,
 }
 
 func (r *DictRepo) Delete(ctx context.Context, id int) error {
-	if _, err := r.db.NamedExecContext(ctx, "DELETE FROM dict WHERE id=:id", id); err != nil {
+	if _, err := r.db.ExecContext(ctx, "DELETE FROM dict WHERE id=?", id); err != nil {
 		return failure.NewInternalError(err)
 	}
 	return nil

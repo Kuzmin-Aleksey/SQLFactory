@@ -53,7 +53,7 @@ func (r *TemplatesRepo) UpdateTemplate(ctx context.Context, template *entity.Tem
 }
 
 func (r *TemplatesRepo) GetDBTemplates(ctx context.Context, db string) ([]entity.Template, error) {
-	var templates []entity.Template
+	templates := []entity.Template{}
 	if err := r.db.SelectContext(ctx, &templates, "SELECT * FROM templates WHERE db=?", db); err != nil {
 		return nil, failure.NewInternalError(err)
 	}
@@ -61,7 +61,7 @@ func (r *TemplatesRepo) GetDBTemplates(ctx context.Context, db string) ([]entity
 }
 
 func (r *TemplatesRepo) DeleteTemplate(ctx context.Context, id int) error {
-	if _, err := r.db.NamedExecContext(ctx, "DELETE FROM templates WHERE id=:id", id); err != nil {
+	if _, err := r.db.ExecContext(ctx, "DELETE FROM templates WHERE id=?", id); err != nil {
 		return failure.NewInternalError(err)
 	}
 	return nil
