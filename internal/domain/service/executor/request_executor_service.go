@@ -117,8 +117,6 @@ func (s *Service) ExecuteUserRequest(ctx context.Context, connConfig sqlrunner.C
 	}
 	l.Debug("generated llm response", "resp", llmResp)
 
-	reasoningJson, _ := json.Marshal(llmResp.ExplanationSteps)
-
 	var executeError string
 
 	var result *sqlrunner.QueryResult
@@ -138,6 +136,8 @@ func (s *Service) ExecuteUserRequest(ctx context.Context, connConfig sqlrunner.C
 
 		l.Debug("generated second llm response", "resp", llmResp)
 	}
+
+	reasoningJson, _ := json.Marshal(llmResp.ExplanationSteps)
 
 	result, err = conn.Query(ctx, llmResp.SQL)
 	if err != nil {
