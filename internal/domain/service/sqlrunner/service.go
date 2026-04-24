@@ -39,6 +39,9 @@ func (s *Service) Query(ctx context.Context, req QueryRequest) (*QueryResult, er
 }
 
 func (s *Service) Connect(ctx context.Context, req ConnectionRequest) (Conn, error) {
+	var conn Conn
+	var err error
+
 	dbType := strings.ToLower(strings.TrimSpace(req.DBType))
 	switch dbType {
 	case "mysql":
@@ -46,7 +49,7 @@ func (s *Service) Connect(ctx context.Context, req ConnectionRequest) (Conn, err
 			"%s:%s@tcp(%s:%d)/%s?parseTime=true&multiStatements=true",
 			req.User, req.Password, req.Host, req.Port, req.Database,
 		)
-		return connectMySQLConn(ctx, dsn, req.Database, s.cfg.MaxRows)
+		conn, err = connectMySQLConn(ctx, dsn, req.Database, s.cfg.MaxRows)
 	case "postgres", "postgresql":
 		u := &url.URL{
 			Scheme: "postgresql",
@@ -54,10 +57,14 @@ func (s *Service) Connect(ctx context.Context, req ConnectionRequest) (Conn, err
 			Host:   fmt.Sprintf("%s:%d", req.Host, req.Port),
 			Path:   "/" + req.Database,
 		}
-		return connectPostgresConn(ctx, u.String(), req.Database, s.cfg.MaxRows)
+		conn, err = connectPostgresConn(ctx, u.String(), req.Database, s.cfg.MaxRows)
 	default:
 		return nil, failure.NewExternalDBError(ErrUnsupportedDBType)
 	}
+	if err != nil {
+		return nil, err
+	}
+	return withStmtFilter(conn), nil
 }
 
 func connectMySQLConn(ctx context.Context, dsn string, dbName string, maxRows int) (Conn, error) {
