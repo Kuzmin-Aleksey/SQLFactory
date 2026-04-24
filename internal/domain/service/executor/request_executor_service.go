@@ -73,7 +73,10 @@ type LLMExecuteResult struct {
 }
 
 type ExecuteResult struct {
+	Query        string          `json:"query"`
+	Title        string          `json:"title"`
 	TableData    value.JsonValue `json:"table_data"`
+	ChartType    string          `json:"chart_type"`
 	ExecuteError string          `json:"execute_error,omitempty"`
 }
 
@@ -222,23 +225,28 @@ func (s *Service) ExecuteTemplate(ctx context.Context, connConfig sqlrunner.Conn
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
+	executeResult := &ExecuteResult{
+		Query:     tmpl.Query,
+		Title:     tmpl.Title,
+		ChartType: tmpl.ChartType,
+	}
+
 	result, err := s.sqlRunner.Query(ctx, sqlrunner.QueryRequest{
 		SQL:               tmpl.Query,
 		ConnectionRequest: connConfig,
 	})
 	if err != nil {
 		if dbError := new(failure.ExternalDBError); errors.As(err, dbError) {
-			return &ExecuteResult{
-				ExecuteError: dbError.Error(),
-			}, nil
+			executeResult.ExecuteError = dbError.Error()
+			return executeResult, nil
 		}
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	resultJson, _ := json.Marshal(result)
-	return &ExecuteResult{
-		TableData: value.JsonValue(resultJson),
-	}, nil
+	executeResult.TableData = value.JsonValue(resultJson)
+
+	return executeResult, nil
 
 }
 
@@ -249,15 +257,20 @@ func (s *Service) ExecuteHistoryItem(ctx context.Context, connConfig sqlrunner.C
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
+	executeResult := &ExecuteResult{
+		Query:     historyItem.Query,
+		Title:     historyItem.Title,
+		ChartType: historyItem.ChartType,
+	}
+
 	result, err := s.sqlRunner.Query(ctx, sqlrunner.QueryRequest{
 		SQL:               historyItem.Query,
 		ConnectionRequest: connConfig,
 	})
 	if err != nil {
 		if dbError := new(failure.ExternalDBError); errors.As(err, dbError) {
-			return &ExecuteResult{
-				ExecuteError: dbError.Error(),
-			}, nil
+			executeResult.ExecuteError = dbError.Error()
+			return executeResult, nil
 		}
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -269,9 +282,9 @@ func (s *Service) ExecuteHistoryItem(ctx context.Context, connConfig sqlrunner.C
 		contextx.GetLoggerOrDefault(ctx).Error("failed update table data", "err", err, "item_id", itemId, "table_data", tableData)
 	}
 
-	return &ExecuteResult{
-		TableData: tableData,
-	}, nil
+	executeResult.TableData = tableData
+
+	return executeResult, nil
 }
 
 func hashConnConfig(connCfg sqlrunner.ConnectionRequest) string {
