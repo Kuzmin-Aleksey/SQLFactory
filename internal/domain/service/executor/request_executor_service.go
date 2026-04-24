@@ -23,7 +23,7 @@ type History interface {
 }
 
 type Dict interface {
-	GetByDB(ctx context.Context, dbId string) (map[string]string, error)
+	GetByDBMap(ctx context.Context, dbId string) (map[string]string, error)
 }
 
 type Templates interface {
@@ -106,7 +106,7 @@ func (s *Service) ExecuteUserRequest(ctx context.Context, connConfig sqlrunner.C
 	}
 
 	dbId := hashConnConfig(connConfig)
-	dict, err := s.dict.GetByDB(ctx, dbId)
+	dict, err := s.dict.GetByDBMap(ctx, dbId)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}

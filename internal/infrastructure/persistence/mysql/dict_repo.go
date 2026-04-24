@@ -41,7 +41,7 @@ func (r *DictRepo) Update(ctx context.Context, item *entity.DictItem) error {
 	return nil
 }
 
-func (r *DictRepo) GetByDB(ctx context.Context, dbId string) (map[string]string, error) {
+func (r *DictRepo) GetByDBMap(ctx context.Context, dbId string) (map[string]string, error) {
 	dict := make(map[string]string)
 	rows, err := r.db.QueryxContext(ctx, "SELECT word, meaning FROM dict WHERE db=?", dbId)
 	if err != nil {
@@ -60,6 +60,17 @@ func (r *DictRepo) GetByDB(ctx context.Context, dbId string) (map[string]string,
 			return nil, failure.NewInternalError(err)
 		}
 		dict[word] = meaning
+	}
+	return dict, nil
+}
+
+func (r *DictRepo) GetByDB(ctx context.Context, dbId string) ([]entity.DictItem, error) {
+	dict := []entity.DictItem{}
+	if err := r.db.SelectContext(ctx, &dict, "SELECT * FROM dict WHERE db=?", dbId); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return dict, nil
+		}
+		return nil, failure.NewInternalError(err)
 	}
 	return dict, nil
 }

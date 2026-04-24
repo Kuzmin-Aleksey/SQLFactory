@@ -12,7 +12,7 @@ import (
 type DictService interface {
 	Add(ctx context.Context, dictItem *entity.DictItem) error
 	Update(ctx context.Context, item *entity.DictItem) error
-	GetByDB(ctx context.Context, dbId string) (map[string]string, error)
+	GetByDB(ctx context.Context, dbId string) ([]entity.DictItem, error)
 	Delete(ctx context.Context, id int) error
 }
 
