@@ -50,7 +50,6 @@ func NewClient(cfg config.GigaChatConfig) (*Client, error) {
 	go func() {
 		for {
 			time.Sleep(client.expiresAt.Sub(time.Now()))
-			log.Println("generate token")
 			if err := client.updateToken(); err != nil {
 				log.Printf("Error updating token: %s", err.Error())
 				continue
