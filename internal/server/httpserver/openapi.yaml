@@ -32,6 +32,13 @@ components:
           type: string
           description: Код ошибки (InternalError, NotFound, ValidationError, Unauthorized, AlreadyExists)
 
+    LLMErrorResponse:
+      type: object
+      required: [llm_error]
+      properties:
+        llm_error:
+          type: string
+
     Tokens:
       type: object
       required:
@@ -89,6 +96,10 @@ components:
           type: integer
         user_id:
           type: integer
+        previous_id:
+          type: integer
+          nullable: true
+          description: Идентификатор предыдущего элемента истории (если запрос был регенерацией)
         db:
           type: string
         create_at:
@@ -152,12 +163,21 @@ components:
           type: string
         reasoning:
           description: JSON-массив шагов объяснения
+        history_id:
+          type: integer
+          description: Идентификатор созданного элемента истории
+        execute_error:
+          type: string
+          description: Ошибка выполнения SQL на внешней БД (если есть)
 
     ExecuteResult:
       type: object
       properties:
         table_data:
           $ref: '#/components/schemas/QueryResult'
+        execute_error:
+          type: string
+          description: Ошибка выполнения SQL на внешней БД (если есть)
 
     ConnectionForm:
       type: object
@@ -386,6 +406,25 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /api/history/items:
+    get:
+      tags: [history]
+      summary: Список записей истории, начиная с first_id
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: first_id
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/HistoryItem' }
+
   /api/dict:
     get:
       tags: [dict]
@@ -401,7 +440,9 @@ paths:
         '200':
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/DictMap' }
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/DictItem' }
 
   /api/dict/item:
     post:
@@ -461,6 +502,10 @@ paths:
                   required: [prompt]
                   properties:
                     prompt: { type: string }
+                    previous_id:
+                      type: integer
+                      nullable: true
+                      description: Идентификатор предыдущего элемента истории (для контекста/регенирации)
       responses:
         '200':
           description: |
@@ -472,6 +517,7 @@ paths:
                 oneOf:
                   - $ref: '#/components/schemas/LLMExecuteResult'
                   - $ref: '#/components/schemas/Error'
+                  - $ref: '#/components/schemas/LLMErrorResponse'
 
   /api/executor/template:
     post:
