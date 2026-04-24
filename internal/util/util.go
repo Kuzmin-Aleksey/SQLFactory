@@ -4,23 +4,6 @@ import (
 	"io"
 )
 
-func InsertFunc[S ~[]E, E any](s S, v E, f func(E) bool) S {
-	if len(s) == 0 {
-		return []E{v}
-	}
-	for i := 0; i < len(s); i++ {
-		if f(s[i]) {
-			return append(s[:i], append([]E{v}, s[i:]...)...)
-		}
-	}
-
-	return append(s, v)
-}
-
-func Ptr[T any](v T) *T {
-	return &v
-}
-
 type MultiReadCloser struct {
 	readers []io.ReadCloser
 	io.Reader
@@ -47,4 +30,23 @@ func NewMultiReadCloser(readers ...io.ReadCloser) *MultiReadCloser {
 		readers: readers,
 		Reader:  io.MultiReader(simpleReaders...),
 	}
+}
+
+func TrimJson(s []byte) []byte {
+	idx1 := 0
+
+	for i, b := range s {
+		if b == '{' {
+			idx1 = i
+		}
+	}
+
+	idx2 := len(s) - 1
+	for i := len(s) - 1; i >= 0; i-- {
+		if s[i] == '}' {
+			idx2 = i
+		}
+	}
+
+	return s[idx1 : idx2+1]
 }

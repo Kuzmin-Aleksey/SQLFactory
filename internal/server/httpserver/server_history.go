@@ -11,6 +11,7 @@ import (
 type HistoryService interface {
 	GetByDB(ctx context.Context, db string) ([]entity.HistoryItem, error)
 	GetItem(ctx context.Context, id int) (*entity.HistoryItem, error)
+	GetItemsByFirstId(ctx context.Context, firstId int) ([]entity.HistoryItem, error)
 	Delete(ctx context.Context, id int) error
 }
 
@@ -48,6 +49,23 @@ func (s *HistoryServer) getHistoryItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJson(ctx, w, item, http.StatusOK)
+}
+
+func (s *HistoryServer) getItemsByFirstId(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	id, err := strconv.Atoi(r.FormValue("first_id"))
+	if err != nil {
+		writeAndLogErr(ctx, w, failure.NewInvalidRequestError(err))
+		return
+	}
+
+	items, err := s.service.GetItemsByFirstId(ctx, id)
+	if err != nil {
+		writeAndLogErr(ctx, w, err)
+		return
+	}
+	writeJson(ctx, w, items, http.StatusOK)
 }
 
 func (s *HistoryServer) deleteHistoryItem(w http.ResponseWriter, r *http.Request) {

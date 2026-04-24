@@ -2,7 +2,6 @@ set shell := ["pwsh.exe", "-CommandWithArgs"]
 set dotenv-load := true
 
 MIGRATION_DIR := "db/migrations"
-TEST_DOCKER_COMPOSE := "docker compose -f tests/docker-compose.yml"
 
 lint:
     golangci-lint run -D errcheck

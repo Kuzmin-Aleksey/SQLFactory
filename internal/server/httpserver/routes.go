@@ -29,6 +29,7 @@ func (s *Server) RegisterRoutes(rtr *mux.Router) {
 
 	rtr.HandleFunc("/api/history", s.MwAuth(s.getDBHistory)).Methods(http.MethodGet)
 	rtr.HandleFunc("/api/history/item", s.MwAuth(s.getHistoryItem)).Methods(http.MethodGet)
+	rtr.HandleFunc("/api/history/items", s.MwAuth(s.getItemsByFirstId)).Methods(http.MethodGet)
 	rtr.HandleFunc("/api/history", s.MwAuth(s.deleteHistoryItem)).Methods(http.MethodDelete)
 
 	rtr.HandleFunc("/api/dict", s.MwAuth(s.getDBDict)).Methods(http.MethodGet)

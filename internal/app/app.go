@@ -75,9 +75,16 @@ func Run(cfg *config.Config) {
 	templatesRepo := mysql.NewTemplatesRepo(db)
 	historyRepo := mysql.NewHistoryRepo(db)
 	dictRepo := mysql.NewDictRepo(db)
+	llmContextRepo := mysql.NewLLMContextRepo(db)
 
 	sqlRunnerService := sqlrunner.NewService(cfg.SQLRunner)
-	executorService := executor.NewService(historyRepo, templatesRepo, dictRepo, sqlRunnerService, llm)
+	executorService := executor.NewService(
+		historyRepo,
+		templatesRepo,
+		dictRepo,
+		llmContextRepo,
+		sqlRunnerService,
+		llm)
 	authService := auth.NewService(usersRepo, tokensCache, confirmEmailCache, cfg.Auth)
 
 	httpServer := newHttpServer(l, authService, templatesRepo, historyRepo, dictRepo, executorService, cfg.HttpServer)

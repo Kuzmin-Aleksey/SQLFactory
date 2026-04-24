@@ -2,7 +2,9 @@ package gemini
 
 import (
 	"SQLFactory/internal/config"
-	"SQLFactory/internal/domain/service/executor"
+	"SQLFactory/internal/domain/entity"
+	"SQLFactory/internal/infrastructure/llm"
+	"SQLFactory/internal/util"
 	"SQLFactory/pkg/failure"
 	"context"
 	"encoding/json"
@@ -37,9 +39,11 @@ type errorResponse struct {
 	Error string `json:"error"`
 }
 
-func (c *Client) GenerateSQL(ctx context.Context, request string, dict map[string]string, schema any, dbType string) (*executor.LLMResponse, error) {
+func (c *Client) GenerateSQL(ctx context.Context, llmContext llm.Context, request string, dict map[string]string, schema any, dbType string) (*llm.Response, error) {
 	schemaJSON, _ := json.Marshal(schema)
 	dictJSON, _ := json.Marshal(dict)
+
+	messages := convertContextToContents(llmContext)
 
 	prompt := strings.TrimSpace(fmt.Sprintf(`
 You are an assistant that converts a user's natural language analytics request into a single read-only SQL query for analytics.
@@ -77,12 +81,14 @@ Or return an error if the user's request is incorrect:
 
 `, dbType, request, string(dictJSON), string(schemaJSON)))
 
-	messages := []*genai.Content{
-		{
-			Role:  genai.RoleUser,
-			Parts: []*genai.Part{{Text: prompt}},
-		},
-	}
+	messages = append(messages, &genai.Content{
+		Role:  genai.RoleUser,
+		Parts: []*genai.Part{{Text: prompt}},
+	})
+	llmContext.Append(entity.LLMContext{
+		Role:    entity.LLMRoleUser,
+		Content: prompt,
+	})
 
 	res, err := c.client.Models.GenerateContent(
 		ctx,
@@ -94,7 +100,7 @@ Or return an error if the user's request is incorrect:
 		return nil, failure.NewInternalError(err)
 	}
 
-	rawRes := []byte(res.Text())
+	rawRes := util.TrimJson([]byte(res.Text()))
 
 	messages = append(messages, &genai.Content{
 		Role:  genai.RoleModel,
@@ -106,19 +112,20 @@ Or return an error if the user's request is incorrect:
 		return nil, failure.NewLLMError(llmErr.Error)
 	}
 
-	out := new(executor.LLMResponse)
+	out := new(llm.Response)
 	if err := json.Unmarshal(rawRes, out); err != nil {
-		return nil, failure.NewInvalidRequestError(fmt.Errorf("gemini returned non-json: %w", err))
+		return nil, failure.NewInternalError(fmt.Errorf("gemini returned non-json: %w", err))
 	}
-	out.LLMContext = messages
+	llmContext.Append(entity.LLMContext{
+		Role:    entity.LLMRoleModel,
+		Content: string(rawRes),
+	})
+	out.LLMContext = llmContext
 	return out, nil
 }
 
-func (c *Client) GenerateSQLSecond(ctx context.Context, LLMContext any, data any) (*executor.LLMResponse, error) {
-	messages, ok := data.([]*genai.Content)
-	if !ok {
-		return nil, fmt.Errorf("invalid LLMontext type %T", LLMContext)
-	}
+func (c *Client) GenerateSQLSecond(ctx context.Context, llmContext llm.Context, data any) (*llm.Response, error) {
+	messages := convertContextToContents(llmContext)
 
 	dataJSON, _ := json.Marshal(data)
 
@@ -138,8 +145,13 @@ Return result JSON:
 `, string(dataJSON)))
 
 	messages = append(messages, &genai.Content{
-		Role:  genai.RoleModel,
+		Role:  genai.RoleUser,
 		Parts: []*genai.Part{{Text: prompt}},
+	})
+
+	llmContext.Append(entity.LLMContext{
+		Role:    entity.LLMRoleUser,
+		Content: prompt,
 	})
 
 	res, err := c.client.Models.GenerateContent(
@@ -152,10 +164,87 @@ Return result JSON:
 		return nil, failure.NewInternalError(err)
 	}
 
-	out := new(executor.LLMResponse)
-	if err := json.Unmarshal([]byte(res.Text()), out); err != nil {
-		return nil, failure.NewInvalidRequestError(fmt.Errorf("gemini returned non-json: %w", err))
+	out := new(llm.Response)
+	if err := json.Unmarshal(util.TrimJson([]byte(res.Text())), out); err != nil {
+		return nil, failure.NewInternalError(fmt.Errorf("gemini returned non-json: %w", err))
 	}
 
+	llmContext.Append(entity.LLMContext{
+		Role:    entity.LLMRoleModel,
+		Content: res.Text(),
+	})
+	out.LLMContext = llmContext
 	return out, nil
+}
+
+func (c *Client) RegenerateSQL(ctx context.Context, llmContext llm.Context, request string) (*llm.Response, error) {
+	messages := convertContextToContents(llmContext)
+
+	prompt := strings.TrimSpace(fmt.Sprintf(`
+From user: %s
+
+Return JSON with keys:
+{
+  "title": string,
+  "sql": string,
+  "explanation_steps": []string,
+  "chart_type": "none"|"line"|"pie"|"histogram",
+  "need_query": true | false
+}
+Don't return error
+
+`, request))
+
+	messages = append(messages, &genai.Content{
+		Role:  genai.RoleUser,
+		Parts: []*genai.Part{{Text: prompt}},
+	})
+	llmContext.Append(entity.LLMContext{
+		Role:    entity.LLMRoleUser,
+		Content: prompt,
+	})
+
+	res, err := c.client.Models.GenerateContent(
+		ctx,
+		c.model,
+		messages,
+		nil,
+	)
+	if err != nil {
+		return nil, failure.NewInternalError(err)
+	}
+
+	rawRes := util.TrimJson([]byte(res.Text()))
+
+	messages = append(messages, &genai.Content{
+		Role:  genai.RoleModel,
+		Parts: []*genai.Part{{Text: string(rawRes)}},
+	})
+
+	out := new(llm.Response)
+	if err := json.Unmarshal(rawRes, out); err != nil {
+		return nil, failure.NewInternalError(fmt.Errorf("gemini returned non-json: %w", err))
+	}
+	llmContext.Append(entity.LLMContext{
+		Role:    entity.LLMRoleModel,
+		Content: string(rawRes),
+	})
+	out.LLMContext = llmContext
+	return out, nil
+}
+
+var llmRoleToGenai = map[entity.Role]string{
+	entity.LLMRoleUser:  genai.RoleUser,
+	entity.LLMRoleModel: genai.RoleModel,
+}
+
+func convertContextToContents(llmContext llm.Context) []*genai.Content {
+	contents := make([]*genai.Content, len(llmContext))
+	for i, contextItem := range llmContext {
+		contents[i] = &genai.Content{
+			Role:  llmRoleToGenai[contextItem.Role],
+			Parts: []*genai.Part{{Text: contextItem.Content}},
+		}
+	}
+	return contents
 }

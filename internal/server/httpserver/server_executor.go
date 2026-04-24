@@ -76,8 +76,12 @@ func (s *ExecutorServer) executeUserPrompt(w http.ResponseWriter, r *http.Reques
 	if prompt == "" {
 		writeAndLogErr(ctx, w, failure.NewInvalidRequestError(errors.New("prompt is required")))
 	}
+	var previousId *int
+	if v, err := strconv.Atoi(r.FormValue("previous_id")); err == nil {
+		previousId = &v
+	}
 
-	result, err := s.service.ExecuteUserRequest(ctx, connCfg, prompt)
+	result, err := s.service.ExecuteUserRequest(ctx, connCfg, prompt, previousId)
 	if err != nil {
 		if errSQlExternal := new(failure.ExternalDBError); errors.As(err, errSQlExternal) {
 			writeJson(ctx, w, errorResponse{

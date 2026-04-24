@@ -2,7 +2,9 @@ package gigachat
 
 import (
 	"SQLFactory/internal/config"
-	"SQLFactory/internal/domain/service/executor"
+	"SQLFactory/internal/domain/entity"
+	"SQLFactory/internal/infrastructure/llm"
+	"SQLFactory/internal/util"
 	"SQLFactory/pkg/failure"
 	"bytes"
 	"context"
@@ -37,6 +39,11 @@ type UpdateTokenResponse struct {
 	} `json:"error"`
 }
 
+const (
+	RoleUser      = "user"
+	RoleAssistant = "assistant"
+)
+
 func NewClient(cfg config.GigaChatConfig) (*Client, error) {
 	client := &Client{
 		masterToken:   cfg.ApiKey,
@@ -65,9 +72,11 @@ type errorResponse struct {
 	Error string `json:"error"`
 }
 
-func (c *Client) GenerateSQL(ctx context.Context, request string, dict map[string]string, schema any, dbType string) (*executor.LLMResponse, error) {
+func (c *Client) GenerateSQL(ctx context.Context, llmContext llm.Context, request string, dict map[string]string, schema any, dbType string) (*llm.Response, error) {
 	schemaJSON, _ := json.Marshal(schema)
 	dictJSON, _ := json.Marshal(dict)
+
+	messages := convertContextToAIMessages(llmContext)
 
 	prompt := strings.TrimSpace(fmt.Sprintf(`
 Ты — аналитический ассистент, который преобразует запросы пользователей на естественном языке в SQL и предлагает подходящий тип визуализации. На вход подаются:
@@ -90,7 +99,6 @@ func (c *Client) GenerateSQL(ctx context.Context, request string, dict map[strin
 	6. Описать шаги рассуждения — как ты пришёл к типу графика и SQL.
 
 Так как ты не видешь данные в бд - сделай дополнительный запрос чтобы ты смог более точно составить итоговый отет в следующем запросе.
-Ты можешь не использовать дополнительный запрос только в случае когда ты уверен в запросе. Но лучше используй.
 
 Требования к SQL:
 - Если ты готов сразу составить запрос то он должен быть готов к выполнению и возвращать колонки, необходимые для построения графика (например, для line — колонка со временем/осью X и числовая колонка; для pie — категориальная и числовая; для histogram — интервал или границы и частота).
@@ -111,7 +119,7 @@ func (c *Client) GenerateSQL(ctx context.Context, request string, dict map[strin
   "error": "..."
 }
 
-Не добавляй никаких пояснений вне JSON. Строки внутри JSON экранируй должным образом.
+Не добавляй никаких пояснений вне JSON. Строки внутри JSON экранируй должным образом. Весь ответ должен быть валидным JSON.
 
 Теперь примени эти правила к следующим входным данным:
 user_request: %s
@@ -120,12 +128,14 @@ db_schema: %s
 db_type: %s
 `, request, string(dictJSON), string(schemaJSON), dbType))
 
-	messages := []AIMessage{
-		{
-			Role:    "user",
-			Content: prompt,
-		},
-	}
+	messages = append(messages, AIMessage{
+		Role:    RoleUser,
+		Content: prompt,
+	})
+	llmContext.Append(entity.LLMContext{
+		Role:    entity.LLMRoleUser,
+		Content: prompt,
+	})
 
 	res, err := c.request(ctx, messages, 0.6)
 	if err != nil {
@@ -133,32 +143,33 @@ db_type: %s
 	}
 
 	messages = append(messages, AIMessage{
-		Role:    "assistant",
+		Role:    RoleAssistant,
 		Content: res,
 	})
 
-	rawRes := []byte(res)
+	rawRes := util.TrimJson([]byte(res))
 
 	llmErr := new(errorResponse)
 	if json.Unmarshal(rawRes, llmErr); llmErr.Error != "" {
 		return nil, failure.NewLLMError(llmErr.Error)
 	}
 
-	out := new(executor.LLMResponse)
+	out := new(llm.Response)
 	if err := json.Unmarshal(rawRes, out); err != nil {
-		return nil, failure.NewInvalidRequestError(fmt.Errorf("gigachat returned non-json: %w", err))
+		return nil, failure.NewInternalError(fmt.Errorf("gigachat returned non-json: %w", err))
 	}
 
-	out.LLMContext = messages
+	llmContext.Append(entity.LLMContext{
+		Role:    entity.LLMRoleModel,
+		Content: res,
+	})
+	out.LLMContext = llmContext
 
 	return out, nil
 }
 
-func (c *Client) GenerateSQLSecond(ctx context.Context, LLMContext any, data any) (*executor.LLMResponse, error) {
-	messages, ok := LLMContext.([]AIMessage)
-	if !ok {
-		return nil, failure.NewInternalError(fmt.Errorf("invalid LLMContext type %T", LLMContext))
-	}
+func (c *Client) GenerateSQLSecond(ctx context.Context, llmContext llm.Context, data any) (*llm.Response, error) {
+	messages := convertContextToAIMessages(llmContext)
 
 	dataJSON, _ := json.Marshal(data)
 
@@ -166,18 +177,23 @@ func (c *Client) GenerateSQLSecond(ctx context.Context, LLMContext any, data any
 Данные из БД:
 %s
 
-Верни итоговый ответ:
+Не добавляй никаких пояснений вне JSON. Строки внутри JSON экранируй должным образом. Весь ответ должен быть валидным JSON
+
+Верни итоговый валидный JSON:
 {
   "title": "строка с заголовком графика",
   "sql": "строка с SQL-запросом",
   "explanation_steps": ["шаг 1", "шаг 2", ...],
   "chart_type": "none" | "line" | "pie" | "histogram"
 }
-
 `, string(dataJSON)))
 
 	messages = append(messages, AIMessage{
-		Role:    "user",
+		Role:    RoleUser,
+		Content: prompt,
+	})
+	llmContext.Append(entity.LLMContext{
+		Role:    entity.LLMRoleUser,
 		Content: prompt,
 	})
 
@@ -186,10 +202,91 @@ func (c *Client) GenerateSQLSecond(ctx context.Context, LLMContext any, data any
 		return nil, failure.NewInternalError(err)
 	}
 
-	out := new(executor.LLMResponse)
-	if err := json.Unmarshal([]byte(res), out); err != nil {
-		return nil, failure.NewInvalidRequestError(fmt.Errorf("gigachat returned non-json: %w", err))
+	out := new(llm.Response)
+	if err := json.Unmarshal(util.TrimJson([]byte(res)), out); err != nil {
+		return nil, failure.NewInternalError(fmt.Errorf("gigachat returned non-json (%s): %w", res, err))
 	}
+
+	llmContext.Append(entity.LLMContext{
+		Role:    entity.LLMRoleModel,
+		Content: res,
+	})
+	out.LLMContext = llmContext
+	return out, nil
+}
+
+var llmRoleToGigachat = map[entity.Role]string{
+	entity.LLMRoleUser:  RoleUser,
+	entity.LLMRoleModel: RoleAssistant,
+}
+
+func convertContextToAIMessages(llmContext llm.Context) []AIMessage {
+	messages := make([]AIMessage, len(llmContext))
+	for i, contextItem := range llmContext {
+		messages[i] = AIMessage{
+			Role:    llmRoleToGigachat[contextItem.Role],
+			Content: contextItem.Content,
+		}
+	}
+	return messages
+}
+
+func (c *Client) RegenerateSQL(ctx context.Context, llmContext llm.Context, request string) (*llm.Response, error) {
+	messages := convertContextToAIMessages(llmContext)
+
+	prompt := strings.TrimSpace(fmt.Sprintf(`
+Уточнение от пользователья: %s
+
+Ответ верни исключительно в виде JSON-объекта с полями:
+{
+  "title": "строка с заголовком графика",
+  "sql": "строка с SQL-запросом",
+  "explanation_steps": ["шаг 1", "шаг 2", ...],
+  "chart_type": "none" | "line" | "pie" | "histogram",
+  "need_query": true | false
+}
+
+Не возвращай ошибку
+
+Не добавляй никаких пояснений вне JSON. Строки внутри JSON экранируй должным образом. Весь ответ должен быть валидным JSON.
+`, request))
+
+	messages = append(messages, AIMessage{
+		Role:    RoleUser,
+		Content: prompt,
+	})
+	llmContext.Append(entity.LLMContext{
+		Role:    entity.LLMRoleUser,
+		Content: prompt,
+	})
+
+	res, err := c.request(ctx, messages, 0.6)
+	if err != nil {
+		return nil, failure.NewInternalError(err)
+	}
+
+	messages = append(messages, AIMessage{
+		Role:    RoleAssistant,
+		Content: res,
+	})
+
+	rawRes := util.TrimJson([]byte(res))
+
+	llmErr := new(errorResponse)
+	if json.Unmarshal(rawRes, llmErr); llmErr.Error != "" {
+		return nil, failure.NewLLMError(llmErr.Error)
+	}
+
+	out := new(llm.Response)
+	if err := json.Unmarshal(rawRes, out); err != nil {
+		return nil, failure.NewInternalError(fmt.Errorf("gigachat returned non-json: %w", err))
+	}
+
+	llmContext.Append(entity.LLMContext{
+		Role:    entity.LLMRoleModel,
+		Content: res,
+	})
+	out.LLMContext = llmContext
 
 	return out, nil
 }

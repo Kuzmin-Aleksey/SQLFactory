@@ -22,7 +22,7 @@ func NewHistoryRepo(db *sqlx.DB) *HistoryRepo {
 }
 
 func (r *HistoryRepo) SaveItem(ctx context.Context, item *entity.HistoryItem) error {
-	res, err := r.db.NamedExecContext(ctx, "INSERT INTO history (user_id, db, create_at, title, prompt, query, table_data, chart_type, reasoning) VALUES (:user_id, :db, :create_at, :title, :prompt, :query, :table_data, :chart_type, :reasoning)", item)
+	res, err := r.db.NamedExecContext(ctx, "INSERT INTO history (user_id, previous_id, db, create_at, title, prompt, query, table_data, chart_type, reasoning) VALUES (:user_id, :previous_id, :db, :create_at, :title, :prompt, :query, :table_data, :chart_type, :reasoning)", item)
 	if err != nil {
 		return failure.NewInternalError(err)
 	}
@@ -38,7 +38,7 @@ func (r *HistoryRepo) SaveItem(ctx context.Context, item *entity.HistoryItem) er
 
 func (r *HistoryRepo) GetByDB(ctx context.Context, db string) ([]entity.HistoryItem, error) {
 	items := []entity.HistoryItem{}
-	if err := r.db.SelectContext(ctx, &items, "SELECT id, user_id, db, create_at, title FROM history WHERE db=? ORDER BY create_at DESC ", db); err != nil {
+	if err := r.db.SelectContext(ctx, &items, "SELECT id, user_id, db, create_at, title FROM history WHERE db=? AND previous_id IS NULL ORDER BY create_at DESC ", db); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, failure.NewInternalError(err)
 		}
@@ -55,6 +55,30 @@ func (r *HistoryRepo) GetItem(ctx context.Context, id int) (*entity.HistoryItem,
 		return nil, failure.NewInternalError(err)
 	}
 	return item, nil
+}
+
+func (r *HistoryRepo) GetItemsByFirstId(ctx context.Context, firstId int) ([]entity.HistoryItem, error) {
+	var items []entity.HistoryItem
+	if err := r.db.SelectContext(ctx, &items, `
+WITH RECURSIVE path AS (
+    SELECT *
+    FROM history
+    WHERE id = ?
+    
+    UNION ALL
+    
+    SELECT history.*
+    FROM history
+    INNER JOIN path p ON history.previous_id = p.id
+)
+SELECT * FROM path ORDER BY id;
+`, firstId); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, failure.NewNotFoundError(fmt.Errorf("history %d not found", firstId))
+		}
+		return nil, failure.NewInternalError(err)
+	}
+	return items, nil
 }
 
 func (r *HistoryRepo) UpdateTableData(ctx context.Context, id int, data value.JsonValue) error {
