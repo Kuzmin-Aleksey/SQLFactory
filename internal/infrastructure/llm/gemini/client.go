@@ -6,7 +6,6 @@ import (
 	"SQLFactory/pkg/failure"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -53,6 +52,9 @@ Hard rules:
 - ONLY SELECT (or WITH ... SELECT). No INSERT/UPDATE/DELETE/DDL.
 - Must include LIMIT.
 
+Make an additional query to the database (so that you understand what data is there and understand what the user wants) and specify 'need_query: true', and in the sql query that needs to be executed. I will send you the result of the request in the next message.
+You can only choose not to use an additional query if you are confident in the query.
+
 Input:
 database: %s
 user_text: %s
@@ -65,6 +67,7 @@ Return JSON with keys:
   "sql": string,
   "explanation_steps": []string,
   "chart_type": "none"|"line"|"pie"|"histogram",
+  "need_query": true | false
 }
 
 Or return an error if the user's request is incorrect:
@@ -74,10 +77,17 @@ Or return an error if the user's request is incorrect:
 
 `, dbType, request, string(dictJSON), string(schemaJSON)))
 
+	messages := []*genai.Content{
+		{
+			Role:  genai.RoleUser,
+			Parts: []*genai.Part{{Text: prompt}},
+		},
+	}
+
 	res, err := c.client.Models.GenerateContent(
 		ctx,
 		c.model,
-		genai.Text(prompt),
+		messages,
 		nil,
 	)
 	if err != nil {
@@ -85,6 +95,11 @@ Or return an error if the user's request is incorrect:
 	}
 
 	rawRes := []byte(res.Text())
+
+	messages = append(messages, &genai.Content{
+		Role:  genai.RoleModel,
+		Parts: []*genai.Part{{Text: string(rawRes)}},
+	})
 
 	llmErr := new(errorResponse)
 	if json.Unmarshal(rawRes, llmErr); llmErr.Error != "" {
@@ -95,27 +110,52 @@ Or return an error if the user's request is incorrect:
 	if err := json.Unmarshal(rawRes, out); err != nil {
 		return nil, failure.NewInvalidRequestError(fmt.Errorf("gemini returned non-json: %w", err))
 	}
+	out.LLMContext = messages
 	return out, nil
 }
 
-var ErrEmptyResponse = errors.New("empty response from gemini")
+func (c *Client) GenerateSQLSecond(ctx context.Context, LLMContext any, data any) (*executor.LLMResponse, error) {
+	messages, ok := data.([]*genai.Content)
+	if !ok {
+		return nil, fmt.Errorf("invalid LLMontext type %T", LLMContext)
+	}
 
-func (c *Client) generateJSON(ctx context.Context, prompt string, out any) error {
+	dataJSON, _ := json.Marshal(data)
+
+	prompt := strings.TrimSpace(fmt.Sprintf(`
+Data from DB:
+%s
+
+Return result JSON:
+{
+  "title": string,
+  "sql": string,
+  "explanation_steps": []string,
+  "chart_type": "none"|"line"|"pie"|"histogram",
+}
+
+
+`, string(dataJSON)))
+
+	messages = append(messages, &genai.Content{
+		Role:  genai.RoleModel,
+		Parts: []*genai.Part{{Text: prompt}},
+	})
+
 	res, err := c.client.Models.GenerateContent(
 		ctx,
 		c.model,
-		genai.Text(prompt),
+		messages,
 		nil,
 	)
 	if err != nil {
-		return failure.NewInternalError(err)
+		return nil, failure.NewInternalError(err)
 	}
-	raw := res.Text()
-	if raw == "" {
-		return failure.NewInternalError(ErrEmptyResponse)
+
+	out := new(executor.LLMResponse)
+	if err := json.Unmarshal([]byte(res.Text()), out); err != nil {
+		return nil, failure.NewInvalidRequestError(fmt.Errorf("gemini returned non-json: %w", err))
 	}
-	if err := json.Unmarshal([]byte(raw), out); err != nil {
-		return failure.NewInvalidRequestError(fmt.Errorf("gemini returned non-json: %w", err))
-	}
-	return nil
+
+	return out, nil
 }

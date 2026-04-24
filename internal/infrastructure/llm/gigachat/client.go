@@ -83,12 +83,17 @@ func (c *Client) GenerateSQL(ctx context.Context, request string, dict map[strin
    - "pie" — сравнение долей, распределение по категориям;
    - "histogram" — распределение числовых значений по интервалам;
    - "none" — если запрос не предполагает график (например, получение сырых данных, списка записей, единичного показателя без категоризации).
-3. Сгенерировать один корректный и безопасный SQL-запрос (только SELECT), который вернёт данные именно в том виде, который нужен для построения выбранного графика. Учти диалект SQL, поддерживаемый указанной 'db_type'', используй подходящие функции и синтаксис.
-4. Сформировать понятный заголовок графика.
-5. Описать шаги рассуждения — как ты пришёл к типу графика и SQL.
+3. Выполни дополнительный запрос к бд (чтобы ты понимал какие данные там лежат и понимал что хочет пользователь) и укажи 'need_query: true', а в sql запрос который нужно выполнить. Следующим сообщением я верну тебе результат запроса.
+Если дополнительный запрос не требуется то выполни следующие шаги.
+	4. Сгенерировать один корректный и безопасный SQL-запрос (только SELECT), который вернёт данные именно в том виде, который нужен для построения выбранного графика. Учти диалект SQL, поддерживаемый указанной 'db_type'', используй подходящие функции и синтаксис.
+	5. Сформировать понятный заголовок графика.
+	6. Описать шаги рассуждения — как ты пришёл к типу графика и SQL.
+
+Так как ты не видешь данные в бд - сделай дополнительный запрос чтобы ты смог более точно составить итоговый отет в следующем запросе.
+Ты можешь не использовать дополнительный запрос только в случае когда ты уверен в запросе. Но лучше используй.
 
 Требования к SQL:
-- Запрос должен быть готов к выполнению и возвращать колонки, необходимые для построения графика (например, для line — колонка со временем/осью X и числовая колонка; для pie — категориальная и числовая; для histogram — интервал или границы и частота).
+- Если ты готов сразу составить запрос то он должен быть готов к выполнению и возвращать колонки, необходимые для построения графика (например, для line — колонка со временем/осью X и числовая колонка; для pie — категориальная и числовая; для histogram — интервал или границы и частота).
 - Используй агрегации (SUM, COUNT, AVG), группировку, сортировку, фильтрацию по необходимости.
 - Избегай DML, DDL, ввода произвольных строк от пользователя; запрос должен быть параметризован только логикой самого вопроса.
 
@@ -97,7 +102,8 @@ func (c *Client) GenerateSQL(ctx context.Context, request string, dict map[strin
   "title": "строка с заголовком графика",
   "sql": "строка с SQL-запросом",
   "explanation_steps": ["шаг 1", "шаг 2", ...],
-  "chart_type": "none" | "line" | "pie" | "histogram"
+  "chart_type": "none" | "line" | "pie" | "histogram",
+  "need_query": true | false
 }
 
 Или верни ошибку если запрос пользователя некорректен:
@@ -114,15 +120,22 @@ db_schema: %s
 db_type: %s
 `, request, string(dictJSON), string(schemaJSON), dbType))
 
-	res, err := c.request(ctx, []AIMessage{
+	messages := []AIMessage{
 		{
 			Role:    "user",
 			Content: prompt,
 		},
-	}, 0.4)
+	}
+
+	res, err := c.request(ctx, messages, 0.6)
 	if err != nil {
 		return nil, failure.NewInternalError(err)
 	}
+
+	messages = append(messages, AIMessage{
+		Role:    "assistant",
+		Content: res,
+	})
 
 	rawRes := []byte(res)
 
@@ -136,8 +149,51 @@ db_type: %s
 		return nil, failure.NewInvalidRequestError(fmt.Errorf("gigachat returned non-json: %w", err))
 	}
 
+	out.LLMContext = messages
+
 	return out, nil
 }
+
+func (c *Client) GenerateSQLSecond(ctx context.Context, LLMContext any, data any) (*executor.LLMResponse, error) {
+	messages, ok := LLMContext.([]AIMessage)
+	if !ok {
+		return nil, failure.NewInternalError(fmt.Errorf("invalid LLMContext type %T", LLMContext))
+	}
+
+	dataJSON, _ := json.Marshal(data)
+
+	prompt := strings.TrimSpace(fmt.Sprintf(`
+Данные из БД:
+%s
+
+Верни итоговый ответ:
+{
+  "title": "строка с заголовком графика",
+  "sql": "строка с SQL-запросом",
+  "explanation_steps": ["шаг 1", "шаг 2", ...],
+  "chart_type": "none" | "line" | "pie" | "histogram"
+}
+
+`, string(dataJSON)))
+
+	messages = append(messages, AIMessage{
+		Role:    "user",
+		Content: prompt,
+	})
+
+	res, err := c.request(ctx, messages, 0.4)
+	if err != nil {
+		return nil, failure.NewInternalError(err)
+	}
+
+	out := new(executor.LLMResponse)
+	if err := json.Unmarshal([]byte(res), out); err != nil {
+		return nil, failure.NewInvalidRequestError(fmt.Errorf("gigachat returned non-json: %w", err))
+	}
+
+	return out, nil
+}
+
 func newHttpClient() *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{

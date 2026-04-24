@@ -35,10 +35,13 @@ type LLMResponse struct {
 	SQL              string   `json:"sql"`
 	ExplanationSteps []string `json:"explanation_steps"`
 	ChartType        string   `json:"chart_type"`
+	NeedQuery        bool     `json:"need_query"`
+	LLMContext       any
 }
 
 type LLM interface {
 	GenerateSQL(ctx context.Context, request string, dict map[string]string, schema any, dbType string) (*LLMResponse, error)
+	GenerateSQLSecond(ctx context.Context, LLMContext any, data any) (*LLMResponse, error)
 }
 
 type Service struct {
@@ -112,13 +115,31 @@ func (s *Service) ExecuteUserRequest(ctx context.Context, connConfig sqlrunner.C
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-	l.Debug("generated llm response", "llmResp", llmResp)
+	l.Debug("generated llm response", "resp", llmResp)
 
 	reasoningJson, _ := json.Marshal(llmResp.ExplanationSteps)
 
-	result, err := conn.Query(ctx, llmResp.SQL)
 	var executeError string
 
+	var result *sqlrunner.QueryResult
+
+	if llmResp.NeedQuery {
+		var resultForLLM any
+		resultForLLM, err = conn.Query(ctx, llmResp.SQL)
+		if err != nil {
+			resultForLLM = err.Error()
+		}
+		l.Debug("result for llm", "result", resultForLLM)
+
+		llmResp, err = s.llm.GenerateSQLSecond(ctx, llmResp.LLMContext, resultForLLM)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+
+		l.Debug("generated second llm response", "resp", llmResp)
+	}
+
+	result, err = conn.Query(ctx, llmResp.SQL)
 	if err != nil {
 		if dbError := new(failure.ExternalDBError); errors.As(err, dbError) {
 			executeError = dbError.Error()
