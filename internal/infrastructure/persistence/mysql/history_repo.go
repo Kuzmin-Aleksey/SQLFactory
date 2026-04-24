@@ -38,7 +38,7 @@ func (r *HistoryRepo) SaveItem(ctx context.Context, item *entity.HistoryItem) er
 
 func (r *HistoryRepo) GetByDB(ctx context.Context, db string) ([]entity.HistoryItem, error) {
 	items := []entity.HistoryItem{}
-	if err := r.db.SelectContext(ctx, &items, "SELECT id, user_id, db, create_at, title FROM history WHERE db=?", db); err != nil {
+	if err := r.db.SelectContext(ctx, &items, "SELECT id, user_id, db, create_at, title FROM history WHERE db=? ORDER BY create_at DESC ", db); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, failure.NewInternalError(err)
 		}
