@@ -1,5 +1,5 @@
 # Step 1: Modules caching
-FROM golang:1.25.1-alpine3.21 AS modules
+FROM golang:1.26-alpine3.22 AS modules
 
 ENV \
     CGO_ENABLED=0 \
@@ -13,7 +13,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Step 2: Build a special service
-FROM golang:1.25.1-alpine3.21 AS builder
+FROM golang:1.26-alpine3.22 AS builder
 
 
 RUN \
