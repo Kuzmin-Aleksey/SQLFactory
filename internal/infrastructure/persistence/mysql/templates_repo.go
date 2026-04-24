@@ -20,7 +20,7 @@ func NewTemplatesRepo(db *sqlx.DB) *TemplatesRepo {
 }
 
 func (r *TemplatesRepo) SaveTemplate(ctx context.Context, template *entity.Template) error {
-	res, err := r.db.NamedExecContext(ctx, "INSERT INTO templates (db, title, query, chart_type) VALUES (:db, :title, :query, :chart_type)", template)
+	res, err := r.db.NamedExecContext(ctx, "INSERT INTO templates (db, title, query, table_data, chart_type) VALUES (:db, :title, :query, :table_data, :chart_type)", template)
 	if err != nil {
 		return failure.NewInternalError(err)
 	}
@@ -46,7 +46,14 @@ func (r *TemplatesRepo) GetById(ctx context.Context, id int) (*entity.Template, 
 }
 
 func (r *TemplatesRepo) UpdateTemplate(ctx context.Context, template *entity.Template) error {
-	if _, err := r.db.NamedExecContext(ctx, "UPDATE templates SET title=:title, query=:query WHERE id=:id", template); err != nil {
+	if _, err := r.db.NamedExecContext(ctx, "UPDATE templates SET title=:title, query=:query, chart_type=:chart_type WHERE id=:id", template); err != nil {
+		return failure.NewInternalError(err)
+	}
+	return nil
+}
+
+func (r *TemplatesRepo) UpdateTemplateData(ctx context.Context, template *entity.Template) error {
+	if _, err := r.db.NamedExecContext(ctx, "UPDATE templates SET table_data=:table_data WHERE id=:id", template); err != nil {
 		return failure.NewInternalError(err)
 	}
 	return nil

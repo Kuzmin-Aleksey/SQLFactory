@@ -10,6 +10,9 @@ func (v *JsonValue) MarshalJSON() ([]byte, error) {
 	if v == nil {
 		return []byte("null"), nil
 	}
+	if *v == "" {
+		return []byte("null"), nil
+	}
 	return []byte(*v), nil
 }
 

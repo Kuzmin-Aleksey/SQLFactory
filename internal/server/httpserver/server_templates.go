@@ -12,6 +12,7 @@ import (
 type TemplatesService interface {
 	SaveTemplate(ctx context.Context, template *entity.Template) error
 	UpdateTemplate(ctx context.Context, template *entity.Template) error
+	GetById(ctx context.Context, id int) (*entity.Template, error)
 	GetDBTemplates(ctx context.Context, dbId string) ([]entity.Template, error)
 	DeleteTemplate(ctx context.Context, id int) error
 }
@@ -50,6 +51,21 @@ func (s *TemplatesServer) updateTemplate(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func (s *TemplatesServer) getTemplate(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id, err := strconv.Atoi(r.FormValue("id"))
+	if err != nil {
+		writeAndLogErr(ctx, w, failure.NewInvalidRequestError(err))
+		return
+	}
+	template, err := s.service.GetById(ctx, id)
+	if err != nil {
+		writeAndLogErr(ctx, w, err)
+		return
+	}
+	writeJson(ctx, w, template, http.StatusOK)
 }
 
 func (s *TemplatesServer) getDBTemplates(w http.ResponseWriter, r *http.Request) {

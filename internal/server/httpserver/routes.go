@@ -22,6 +22,7 @@ func (s *Server) RegisterRoutes(rtr *mux.Router) {
 	rtr.HandleFunc("/api/auth/refresh", s.Refresh).Methods(http.MethodPost)
 	rtr.HandleFunc("/api/auth/check-token", s.MwAuth(func(http.ResponseWriter, *http.Request) {})).Methods(http.MethodGet)
 
+	rtr.HandleFunc("/api/template", s.MwAuth(s.getTemplate)).Methods(http.MethodGet)
 	rtr.HandleFunc("/api/template", s.MwAuth(s.saveTemplate)).Methods(http.MethodPost)
 	rtr.HandleFunc("/api/template", s.MwAuth(s.updateTemplate)).Methods(http.MethodPut)
 	rtr.HandleFunc("/api/template", s.MwAuth(s.deleteTemplate)).Methods(http.MethodDelete)

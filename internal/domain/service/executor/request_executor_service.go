@@ -29,6 +29,7 @@ type Dict interface {
 
 type Templates interface {
 	GetById(ctx context.Context, id int) (*entity.Template, error)
+	UpdateTemplateData(ctx context.Context, template *entity.Template) error
 }
 
 type LLMContextRepo interface {
@@ -245,6 +246,11 @@ func (s *Service) ExecuteTemplate(ctx context.Context, connConfig sqlrunner.Conn
 
 	resultJson, _ := json.Marshal(result)
 	executeResult.TableData = value.JsonValue(resultJson)
+	tmpl.TableData = value.JsonValue(resultJson)
+
+	if err := s.templates.UpdateTemplateData(ctx, tmpl); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
 
 	return executeResult, nil
 
